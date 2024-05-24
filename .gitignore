@@ -1,0 +1,7 @@
+test.py
+test.html
+views.py
+instance/*
+
+* .pyc
+__pycache__

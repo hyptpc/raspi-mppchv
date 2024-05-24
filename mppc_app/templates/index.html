@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPPC HV Controller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+    <script type=text/javascript>
+      $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+    </script>
+</head>
+
+<body>
+    <div class="grid-container">
+
+        <!-- left region -->
+        <div class="left-container">
+            <h1 class = "title"> MPPC HV Controller </h1>
+
+            <div class="module-manager-container">
+                <!-- left column -->
+                <div>
+                    <!-- module1 -->
+                    <div class="module1-block">
+                        <fieldset>
+                            <legend>module1</legend>
+
+                            <!-- Manage HV -->
+                            <span id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></span>
+                            <div>
+                                <input type="number" name="module1-hv" placeholder="Enter HV [V]">
+                                <button class="custom-btn" href=# id="module1-hv-button">apply</button>
+                            </div>
+
+                            <!-- Manage Temp correction -->
+                            <details class="details">
+                                <summary class="details-summary">
+                                    <span class="summary-inner">
+                                        Temp. Corr.<span class="icon"></span>
+                                    </span>
+                                </summary>
+                                <div class="details-content">
+                                    <div class="content-inner">
+                                        <span id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></span>
+
+                                        <input type="number" name="module1-delta-t1" placeholder="Enter delta-T1"> 
+                                        <input type="number" name="module1-delta-t2" placeholder="Enter delta-T1"> 
+                                        <input type="number" name="module1-t0" placeholder="Enter T0 [℃]"> 
+                                        <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
+                                        <button class="custom-btn" href=# id="module1-temp-corr-button">apply</button>
+                                    </div>
+                                </div>
+                            </details>
+        
+                            <!-- Manage Others -->
+                            <details class="details">
+                                <summary class="details-summary">
+                                    <span class="summary-inner">
+                                        Others<span class="icon"></span>
+                                    </span>
+                                </summary>
+                                <div class="details-content">
+                                    <div class="content_inner">
+                                        <input type="number" name="module1-vmax" placeholder="Enter Vmax [V]"> 
+                                        <button class="custom-btn" href=# id="module1-vmax-button">apply</button>
+
+                                        <!-- ただのボタンにしておく -->
+                                        <!-- <span id="module1-status-switch" class="switch off">status</span>
+                                        <span id="module1-reset-switch"  class="switch off">corr OFF</span> -->
+                                    </div>
+                                </div>
+                            </details>
+                        </fieldset>
+                    </div>
+
+                </div> <!-- left column -->
+
+                <!-- right column -->
+                <div>
+
+                </div> <!-- right column -->
+            </div> <!-- module-manager-container -->
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>time</th>
+                        <th>module</th>
+                        <th>cmd tx</th>
+                        <th>cmd rx</th>
+                        <th>status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>内容 aaaaaa</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容 aaaaaa</td>
+                        <td>内容</td>
+                        
+                    </tr>
+                    <tr>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        
+                    </tr>
+                    <tr>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        <td>内容</td>
+                        
+                    </tr>
+                </tbody>
+            </table>
+
+
+                 <!-- Form -->
+                 <form id="cmd-form">
+                    <p> 
+                        <select name="module-id"> 
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                        cmd   = <input type="text" size="5" name="cmd">
+                        value = <input type="number" size="5" name="value">
+                    </p>
+                    <p></p> 
+                </form>
+            <table id="log-table">
+                <thead>
+                    <tr>
+                        <th>Column 1</th>
+                        <th>Column 2</th>
+                        <th>Column 3</th>
+                        <!-- 列を追加する場合はここに追加 -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 結果がここに表示されます -->
+                </tbody>
+            </table>
+
+        </div> <!-- left-container -->
+
+        <!-- right region -->
+        <div class="right-container">
+            <div id="trend-graph"></div>
+        </div> <!-- right-container -->
+
+    </div> <!-- grid-container -->
+
+    <!-- D3.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Calculation -->
+    <script type=text/javascript src="{{ url_for('static', filename='js/plot.js') }}"></script>
+    <script type=text/javascript src="{{ url_for('static', filename='js/accordion.js') }}"></script>
+    <script type=text/javascript src="{{ url_for('static', filename='js/form.js') }}"></script>
+    <script type=text/javascript src="{{ url_for('static', filename='js/switch.js') }}"></script>
+    <script type=text/javascript src="{{ url_for('static', filename='js/help.js') }}"></script>
+</body>
+</html>
