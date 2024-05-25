@@ -1,5 +1,5 @@
 function fetchLogDataAndFillTable() {
-    $.getJSON('/_fetch_log', function(data) {
+    $.getJSON($SCRIPT_ROOT + '/_fetch_log', function(data) {
         // テーブルのtbodyを空にする
         $('#log-table tbody').empty();
         // 結果をテーブルに追加
@@ -16,7 +16,6 @@ function fetchLogDataAndFillTable() {
         alert('データの取得に失敗しました');
     });
 }
-
 
 $(document).ready(function() {
     fetchLogDataAndFillTable();
@@ -43,7 +42,7 @@ $(document).ready(function() {
             // 'off'クラスがあるかを確認
             if (switch_element.hasClass('off')) {
                 if (confirm(switch_name + 'をオンにしますか？')) {
-                    $.getJSON('/_send_cmd', { module_id: module_id, cmd_type: "on" }, function(data) {
+                    $.getJSON($SCRIPT_ROOT + '/_send_cmd', { module_id: module_id, cmd_type: "on" }, function(data) {
                         fetchLogDataAndFillTable();
                         var is_success = data.is_success;
                         if (is_success) {
@@ -55,7 +54,7 @@ $(document).ready(function() {
                 }
             } else {
                 if (confirm(switch_name + 'をオフにしますか？')) {
-                    $.getJSON('/_send_cmd', { module_id: module_id, cmd_type: "off" }, function(data) {
+                    $.getJSON($SCRIPT_ROOT + '/_send_cmd', { module_id: module_id, cmd_type: "off" }, function(data) {
                         fetchLogDataAndFillTable();
                         var is_success = data.is_success;
                         if (is_success) {

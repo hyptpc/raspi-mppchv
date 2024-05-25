@@ -29,7 +29,7 @@
                             <span id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></span>
                             <div>
                                 <input type="number" name="module1-hv" placeholder="Enter HV [V]">
-                                <button class="custom-btn" href=# id="module1-hv-button">apply</button>
+                                <button class="apply-button" href=# id="module1-hv-button">apply</button>
                             </div>
 
                             <!-- Manage Temp correction -->
@@ -47,26 +47,27 @@
                                         <input type="number" name="module1-delta-t2" placeholder="Enter delta-T1"> 
                                         <input type="number" name="module1-t0" placeholder="Enter T0 [℃]"> 
                                         <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
-                                        <button class="custom-btn" href=# id="module1-temp-corr-button">apply</button>
+                                        <button class="apply-button" href=# id="module1-temp-corr-button">apply</button>
                                     </div>
                                 </div>
                             </details>
         
-                            <!-- Manage Others -->
+                            <!-- Manage Status -->
                             <details class="details">
                                 <summary class="details-summary">
                                     <span class="summary-inner">
-                                        Others<span class="icon"></span>
+                                        Status<span class="icon"></span>
                                     </span>
                                 </summary>
                                 <div class="details-content">
                                     <div class="content_inner">
-                                        <input type="number" name="module1-vmax" placeholder="Enter Vmax [V]"> 
-                                        <button class="custom-btn" href=# id="module1-vmax-button">apply</button>
-
-                                        <!-- ただのボタンにしておく -->
-                                        <!-- <span id="module1-status-switch" class="switch off">status</span>
-                                        <span id="module1-reset-switch"  class="switch off">corr OFF</span> -->
+                                        <button class="custom-button status-button" href=# data-module-id="1">Check status</button>
+                                        <div class="table-wrapper">
+                                            <table class="status-table" id="status-table-1">
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                        <button class="custom-button reset-button" href=# data-module-id="1">RESET Module1</button>
                                     </div>
                                 </div>
                             </details>
@@ -82,8 +83,8 @@
             </div> <!-- module-manager-container -->
 
             <div class="table-wrapper">
-            <div  class="sticky-table-xy">
-            <table class="table sticky_table" id="log-table">
+            <div  class="sticky-table">
+            <table class="table" id="log-table">
                 <thead>
                     <tr>
                         <th class="sticky">time</th>
@@ -116,8 +117,7 @@
     <!-- Calculation -->
     <script type=text/javascript src="{{ url_for('static', filename='js/plot.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/accordion.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/form.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/switch.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/help.js') }}"></script>
+    <script type=text/javascript src="{{ url_for('static', filename='js/button.js') }}"></script>
 </body>
 </html>

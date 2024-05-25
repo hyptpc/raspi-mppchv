@@ -1,5 +1,13 @@
+
 DEBUG = True
 
+# HV limit setting [V]
+VMAX_MODULE1 = 100
+VMAX_MODULE2 = 100
+VMAX_MODULE3 = 100
+VMAX_MODULE4 = 100
+
+# database setting
 db_uri_log     = 'sqlite:///log.db'
 db_uri_hv_temp = 'sqlite:///mppc_data.db'
 

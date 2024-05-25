@@ -103,7 +103,7 @@ def get_status(module_id):
     print("HGS")
     cmd_rx = "44"
     status = dict(
-        hv = 1,
+        hv_output = 1,
         over_curr_prot = 0,
         over_curr = 0,
         with_temp_sens = 0,

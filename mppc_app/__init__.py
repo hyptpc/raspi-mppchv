@@ -6,7 +6,6 @@ app.config.from_object('mppc_app.config')
 
 db = SQLAlchemy(app)
 from mppc_app.models import log, mppc_data
-# import mppc_app.views
 
 # Blueprintの登録
 from mppc_app.views.index import index_bp

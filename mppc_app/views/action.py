@@ -6,10 +6,9 @@ from mppc_app.models.mppc_data import MPPC_data
 action_bp = Blueprint('action', __name__)
 
 from apscheduler.schedulers.background import BackgroundScheduler
-
-# for draw
 import numpy as np
 import json
+from datetime import datetime
 
 def save_mppc_data():
     with app.app_context():
@@ -68,12 +67,11 @@ def get_switch_status():
     module_id = request.args.get('module_id', type=int)
     switch_name = request.args.get('name', type=str)
 
-    # 仮の初期状態を返す（実際の処理はここでモジュールIDに基づいて行う）
     status = get_status(module_id)
     initial_state = 'off'
     initial_text = switch_name + ' OFF'
     if switch_name == "HV":
-        if status["hv"]:
+        if status["hv_output"]:
             initial_state = 'on'
             initial_text = switch_name + ' ON'
     elif switch_name == "Temp":
@@ -100,14 +98,56 @@ def send_cmd():
 @action_bp.route('/_check_status')
 def check_status():
     module_id = request.args.get('module_id', type=int)
-    cmd_tx = "HGS"
-    cmd_rx = get_status(module_id)
+    status = get_status(module_id)
+    detail_status = []
+    detail_status.append(
+        dict(
+            label = "Time",
+            value = datetime.now(),
+            bit   = None
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "HV Output",
+            value = "ON" if status["hv_output"] else "OFF",
+            bit   = status["hv_output"]
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "Overcurrent Protection",
+            value = "Active" if status["over_curr_prot"] else "Not Active",
+            bit   = status["over_curr_prot"]
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "Current Value",
+            value = "Out of Spec" if status["over_curr"] else "Within Spec",
+            bit   = status["over_curr"]
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "Temp Sensor Connection",
+            value = "Connected" if status["with_temp_sens"] else "Not Connected",
+            bit   = status["with_temp_sens"]
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "Temp Range",
+            value = "Out of Spec" if status["over_temp"] else "Within Spec",
+            bit   = status["over_temp"]
+        )
+    )
+    detail_status.append(
+        dict(
+            label = "Temp Correction",
+            value = "Enabled" if status["temp_corr"] else "Disabled",
+            bit   = status["temp_corr"]
+        )
+    )
 
-    n = Log.query.count()
-    print(n)
-    n_show = 10
-    latest_data = Log.query.offset(n-n_show).limit(n_show).all()
-    results = [dict( module_id=data.module_id, cmd_tx=data.cmd_tx, cmd_rx=data.cmd_rx ) for data in latest_data]
-
-
-    return jsonify(results=results)
+    return jsonify(detail_status=detail_status)

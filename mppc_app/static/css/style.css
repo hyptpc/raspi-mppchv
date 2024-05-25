@@ -16,6 +16,12 @@ legend {
     font-weight: bold;
 }
 
+/* Title */
+.title {
+    margin: 2px 1%;
+}
+
+
 /* Input Fields */
 input {
     width: 65%;
@@ -25,7 +31,7 @@ input {
 }
 
 /* Custom Buttons */
-.custom-btn {
+.apply-button {
     width: 25%;
     height: 35px;
     margin: 2.5px 0;
@@ -39,53 +45,86 @@ input {
     transition: all 0.1s ease;
 }
 
-.custom-btn:hover {
+.apply-button:hover {
     background: #ffffff;
     color: #0a0a0a;
 }
 
-.custom-btn:active {
+.apply-button:active {
     box-shadow: none;
     transform: translateY(5px);
 }
 
-/* Title */
-.title {
-    margin: 2px 1%;
+.custom-button {
+    width: 90%;
+    margin-left: 5%;
+    margin-right: 5%;
+    height: 50px;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid #27acd9;;
+    font-family: 'Lato', sans-serif;
+    font-size: 100%;
+    background: #ffffff;
+    color: #27acd9;;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.1s ease;
 }
+
+.custom-button:hover {
+    background: #27acd9;;
+    color: #ffffff;
+}
+
+.custom-button:active {
+    box-shadow: none;
+    transform: translateY(5px);
+}
+
 
 /* Table Wrapper */
 .table-wrapper {
     margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 /* Table Styling */
-.table {
+table {
     width: 100%;
     text-align: center;
     border-collapse: collapse;
-    border: 1px solid #ccc;
-    color: #353535;
 }
-
-.table thead {
-    background: #E6E6F0;
-}
-
-.table th, .table td {
+th, td {
     padding: 5px;
-    text-align: center;
-    border-right: 1px solid #ccc;
 }
-
-.table tr {
-    border-bottom: 1px solid #ccc;
+table tbody tr {
     transition: all 0.1s ease;
+    border-bottom: 1px solid #E6E6E6;
+}
+table tbody tr:hover {
+    background: #2F3232;
+    color: #ffffff;
 }
 
-.table tbody tr:hover {
-    background: #0a0a0a;
-    color: #ffffff;
+.status-table tr {
+    border-top: 1px solid #2F3232;
+    border-bottom: 1px solid #2F3232;
+}
+
+/* Sticky Table Styling */
+.sticky-table {
+    overflow-y: scroll;
+    border: 1px solid var(--border-color);
+    border-right: none;
+    height: 300pt;
+}
+#log-table thead {
+    /* background: #E6E6F0; */
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f5f5f8;
 }
 
 /* Success and Failure Text */
@@ -99,47 +138,6 @@ input {
     font-weight: bold;
 }
 
-/* Sticky Table Styling */
-.sticky-table-xy {
-    --border-color: #e0e0e5;
-    --stripe-bg-color: #f5f5f8;
-    --stripe-header-bg-color: #e7e7ec;
-    --header-bg-color: #f5f5f8;
-
-    overflow-y: scroll;
-    border: 1px solid var(--border-color);
-    border-right: none;
-    height: 300pt;
-}
-
-th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--header-bg-color);
-}
-
-thead tr {
-    border-bottom: 1px solid var(--border-color);
-}
-
-tbody tr:not(:last-child) {
-    border-bottom: 1px solid var(--border-color);
-}
-
-tbody tr:nth-of-type(even) {
-    background: var(--stripe-bg-color);
-}
-
-tbody tr:nth-of-type(even) th {
-    background: var(--stripe-header-bg-color);
-}
-
-tbody th {
-    left: 0;
-    z-index: 2;
-    background: var(--header-bg-color);
-}
 
 /* Switches */
 .switch {
