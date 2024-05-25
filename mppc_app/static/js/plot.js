@@ -1,5 +1,5 @@
 function fetchMppcDataAndPlot() {
-    $.getJSON($SCRIPT_ROOT + '/_fetch_mppc_data', function(data) {
+    $.getJSON('/_fetch_mppc_data', function(data) {
         // JSONデータを解析
         var graph_data = JSON.parse(data.graph_data);
 

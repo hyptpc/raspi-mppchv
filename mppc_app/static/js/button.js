@@ -27,9 +27,8 @@ $(document).ready(function() {
 
     $('button.reset-button').on('click', function() {
         var moduleId = $(this).data('module-id');
-        
         if (confirm("module" + moduleId + 'を再起動しますか？')) {
-            $.getJSON($SCRIPT_ROOT + '/_send_cmd', { module_id: moduleId, cmd_type: "reset" }, function(data) {
+            $.getJSON('/_send_cmd', { module_id: moduleId, cmd_type: "reset" }, function(data) {
                 fetchLogDataAndFillTable();
                 var is_success = data.is_success;
                 if (!is_success) {

@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 
 def save_mppc_data():
+    print(app.config["VMAX_MODULE1"])
     with app.app_context():
         hv, curr, temp = [], [], []
         for i in range(4):
@@ -94,6 +95,12 @@ def send_cmd():
         is_success = reset(module_id)
 
     return jsonify({'is_success': is_success})
+
+@action_bp.route('/_change_hv')
+def change_hv():
+    module_id = request.args.get('module_id', type=int)
+    hv = request.args.get('module_id', type=int)
+
 
 @action_bp.route('/_check_status')
 def check_status():

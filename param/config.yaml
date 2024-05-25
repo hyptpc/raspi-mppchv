@@ -1,0 +1,14 @@
+DEBUG: true
+
+# HV limit setting [V]
+VMAX_MODULE1: 60
+VMAX_MODULE2: 60
+VMAX_MODULE3: 60
+VMAX_MODULE4: 60
+
+# database setting
+SQLALCHEMY_DATABASE_URI: "sqlite:///log.db"
+SQLALCHEMY_BINDS:
+  mppc_data: "sqlite:///mppc_data.db"
+SQLALCHEMY_TRACK_MODIFICATIONS: false
+SQLALCHEMY_ECHO: false
