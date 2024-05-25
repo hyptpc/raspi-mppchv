@@ -1,5 +1,5 @@
-function fetchDataAndPlot() {
-    $.getJSON($SCRIPT_ROOT + '/_fetch_data', function(data) {
+function fetchMppcDataAndPlot() {
+    $.getJSON($SCRIPT_ROOT + '/_fetch_mppc_data', function(data) {
         // JSONデータを解析
         var graph_data = JSON.parse(data.graph_data);
 
@@ -50,6 +50,6 @@ function fetchDataAndPlot() {
 
 // ページロード時に実行
 $(document).ready(function() {
-    fetchDataAndPlot();
-    setInterval(fetchDataAndPlot, 5 * 1000);
+    fetchMppcDataAndPlot();
+    setInterval(fetchMppcDataAndPlot, 5 * 1000);
 });

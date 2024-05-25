@@ -81,73 +81,23 @@
                 </div> <!-- right column -->
             </div> <!-- module-manager-container -->
 
-            <table class="table">
+            <div class="table-wrapper">
+            <div  class="sticky-table-xy">
+            <table class="table sticky_table" id="log-table">
                 <thead>
                     <tr>
-                        <th>time</th>
-                        <th>module</th>
-                        <th>cmd tx</th>
-                        <th>cmd rx</th>
-                        <th>status</th>
+                        <th class="sticky">time</th>
+                        <th class="sticky">module</th>
+                        <th class="sticky">cmd tx</th>
+                        <th class="sticky">cmd rx</th>
+                        <th class="sticky">status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr>
-                        <td>内容 aaaaaa</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容 aaaaaa</td>
-                        <td>内容</td>
-                        
-                    </tr>
-                    <tr>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        
-                    </tr>
-                    <tr>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        <td>内容</td>
-                        
-                    </tr>
-                </tbody>
+                <tbody></tbody>
             </table>
-
-
-                 <!-- Form -->
-                 <form id="cmd-form">
-                    <p> 
-                        <select name="module-id"> 
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                        </select>
-                        cmd   = <input type="text" size="5" name="cmd">
-                        value = <input type="number" size="5" name="value">
-                    </p>
-                    <p></p> 
-                </form>
-            <table id="log-table">
-                <thead>
-                    <tr>
-                        <th>Column 1</th>
-                        <th>Column 2</th>
-                        <th>Column 3</th>
-                        <!-- 列を追加する場合はここに追加 -->
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- 結果がここに表示されます -->
-                </tbody>
-            </table>
-
+            </div>
+        </div>
+            
         </div> <!-- left-container -->
 
         <!-- right region -->

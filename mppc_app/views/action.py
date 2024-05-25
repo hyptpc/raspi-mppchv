@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, jsonify
 from mppc_app import app, db
-from mppc_app.controllers.serial_comm import get_hv, get_current, get_temp, send_cmd, get_status
+from mppc_app.controllers.serial_comm import monitor, get_status, turn_on, turn_off, reset
 from mppc_app.models.log import Log
 from mppc_app.models.mppc_data import MPPC_data
 action_bp = Blueprint('action', __name__)
@@ -15,9 +15,10 @@ def save_mppc_data():
     with app.app_context():
         hv, curr, temp = [], [], []
         for i in range(4):
-            hv.append(get_hv(i))
-            curr.append(get_current(i))
-            temp.append(get_temp(i))
+            monitor_values = monitor(i)
+            hv.append(monitor_values[0])
+            curr.append(monitor_values[1])
+            temp.append(monitor_values[2])
         data = MPPC_data(
             hv1 = hv[0], curr1 = curr[0], temp1 = temp[0],
             hv2 = hv[1], curr2 = curr[1], temp2 = temp[1],
@@ -32,8 +33,8 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(save_mppc_data, 'interval', seconds=5)
 scheduler.start()
 
-@action_bp.route('/_fetch_data')
-def fetch_data():
+@action_bp.route('/_fetch_mppc_data')
+def fetch_mppc_data():
     n = MPPC_data.query.count()
     n_show = 100
     latest_data = MPPC_data.query.offset(n-n_show).limit(n_show).all()
@@ -49,6 +50,16 @@ def fetch_data():
     graph_data = {"x": x, "y": y}
     graph_data_JSON = json.dumps(graph_data)
     return jsonify(graph_data=graph_data_JSON)
+
+@action_bp.route('/_fetch_log')
+def fetch_log():
+    n = Log.query.count()
+    n_show = 30
+    latest_log = Log.query.offset(n-n_show).limit(n_show).all()[::-1]
+    logs = [dict( time=log.time, module_id=log.module_id, cmd_tx=log.cmd_tx, cmd_rx=log.cmd_rx, status=log.status ) for log in latest_log]
+
+    return jsonify(logs=logs)
+
 
 # スイッチの初期状態を返すエンドポイント
 @app.route('/_get_switch_status')
@@ -72,43 +83,19 @@ def get_switch_status():
         
     return jsonify({'state': initial_state, 'text': initial_text})
 
-
-
-
-
-
-
-
-
-
-
-
-
-@action_bp.route('/_send')
-def send():
+@action_bp.route('/_send_cmd')
+def send_cmd():
     module_id = request.args.get('module_id', type=int)
-    cmd   = request.args.get('cmd', type=str)
-    value = request.args.get('value', type=float)
+    cmd_type  = request.args.get('cmd_type', type=str)
+    is_success = False
+    if cmd_type == "on":
+        is_success = turn_on(module_id)
+    elif cmd_type == "off":
+        is_success = turn_off(module_id)
+    elif cmd_type == "reset":
+        is_success = reset(module_id)
 
-    cmd_tx = "{} {}".format(cmd, value)
-    cmd_rx = send_cmd(module_id, cmd, value)
-
-    with app.app_context():
-        data = Log(
-            module_id = module_id,
-            cmd_tx = cmd_tx,
-            cmd_rx = cmd_rx
-        )
-        db.session.add(data)
-        db.session.commit()
-
-    n = Log.query.count()
-    print(n)
-    n_show = 10
-    latest_data = Log.query.offset(n-n_show).limit(n_show).all()
-    results = [dict( module_id=data.module_id, cmd_tx=data.cmd_tx, cmd_rx=data.cmd_rx ) for data in latest_data]
-
-    return jsonify(results=results)
+    return jsonify({'is_success': is_success})
 
 @action_bp.route('/_check_status')
 def check_status():
