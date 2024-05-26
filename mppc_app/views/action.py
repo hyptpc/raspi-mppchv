@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, jsonify
 from mppc_app import app, db
-from mppc_app.controllers.serial_comm import monitor, get_status, set_hv, turn_on, turn_off, reset
+from mppc_app.controllers.serial_comm import monitor, get_status, set_hv, set_temp_corr, turn_on, turn_off, reset
 from mppc_app.models.log import Log
 from mppc_app.models.mppc_data import MPPC_data
 action_bp = Blueprint('action', __name__)
@@ -100,12 +100,16 @@ def send_cmd():
 def change_hv():
     module_id = request.args.get('module_id', type=int)
     hv = request.args.get('hv_value', type=float)
-    name = request.args.get('name', type=str)
-    print(name)
+    hv_type = request.args.get('name', type=str)
     
     if (hv < 0 or app.config["VMAX_MODULE{}".format(module_id)] < hv):
         return jsonify({'status_code': 2}) # out of range
-    is_success = set_hv(module_id, hv)
+    is_success = False
+    if hv_type == "norm":
+        is_success = set_hv(module_id, hv)
+    elif hv_type == "temp":
+        app.config["V0"] = hv
+        is_success = set_temp_corr(module_id, hv, app.config["T0"], app.config["DELTA_T_HIGH"], app.config["DELTA_T_HIGH_PRIME"], app.config["DELTA_T_LOW"], app.config["DELTA_T_LOW_PRIME"])
     status_code = 0 if is_success else 1
     return jsonify({'status_code': status_code}) 
 

@@ -72,11 +72,22 @@ def get_temp(module_id):
 def set_hv(module_id, hv):
     rng  = np.random.default_rng()
     print("HBV")
-    rng = np.random.default_rng()
     is_success = False
     if rng.random() > 0.5:
         is_success = True
     save_log(module_id=module_id, cmd_tx="HBV{}".format(hv), cmd_rx="hbv", status=is_success)
+    return is_success
+
+@flag_manager
+def set_temp_corr(module_id, v0, t0, delta_t_h, delta_t_h_prime, delta_t_l, delta_t_l_prime):
+    rng  = np.random.default_rng()
+    print("HST")
+    is_success = False
+    if rng.random() > 0.5:
+        is_success = True
+    save_log(module_id=module_id, cmd_tx="HST{}".format(v0), cmd_rx="hst", status=is_success)
+    print("HRT")
+    save_log(module_id=module_id, cmd_tx="HRT", cmd_rx="hrt", status=is_success)
     return is_success
 
 @flag_manager

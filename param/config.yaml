@@ -7,12 +7,12 @@ VMAX_MODULE3: 60
 VMAX_MODULE4: 60
 
 # temp correction parameter
-T0: 20 # degree
 V0: 50 # V
-DELTA_T_HIGH: 0
-DELTA_T_HIGH_PRIME: 0
-DELTA_T_LOW: 0
-DELTA_T_LOW_PRIME: 0
+T0: 20 # deg
+DELTA_T_HIGH: 0         # mv/deg
+DELTA_T_HIGH_PRIME: 0   # mv/deg^2
+DELTA_T_LOW: 0          # mv/deg
+DELTA_T_LOW_PRIME: 0    # mv/deg^2
 
 # interval time setting [sec]
 PLOT_INTERVAL: 5

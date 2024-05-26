@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
     
     <!-- jQuery -->
-    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='external_js/jquery-3.7.1.min.js') }}"></script>
     <!-- Plotly.js -->
-    <script src="{{ url_for('static', filename='js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='external_js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
 </head>
 
 <body>
@@ -29,8 +29,8 @@
                             <!-- Manage HV -->
                             <div id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></div>
                             <div>
-                                <input type="number" placeholder="Enter HV [V]" id="hv-form-1">
-                                <button class="apply-button" href=# name="norm-hv" data-module-id="1">apply</button>
+                                <input type="number" placeholder="Enter HV [V]" id="hv-form-norm-1">
+                                <button class="apply-button" href=# data-hv-type="norm" data-module-id="1">apply</button>
                             </div>
 
                             <!-- Manage Temp correction -->
@@ -44,45 +44,37 @@
                                     <div class="content-inner">
                                         <div id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></div>
                                         <div>
-                                            <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
-                                            <button class="apply-button" href=# name="temp-hv" data-module-id="1">apply</button>
+                                            <input type="number" placeholder="Enter V0 [V]" id="hv-form-temp-1"> 
+                                            <button class="apply-button" href=# data-hv-type="temp" data-module-id="1">apply</button>
                                         </div>
 
-                                        <div class="table-wrapper temp-corr">
+                                        <div class="table-wrapper">
                                             <table class="temp-corr-table" id="temp-corr-table-1">
-                                                <thead>
-                                                    <tr>
-                                                        <td colspan="2" nowrap> V<sub>corr</sub> = ( ΔT'(T - T<sub>0</sub>)<sup>2</sup> + ΔT(T - T<sub>0</sub>))/1000 + V<sub>0</sub>   </td>
-                                                    </tr>
-                                                </thead>
                                                 <tbody>
                                                     <tr>
-                                                        <th> \( V_0 \) </th>
-                                                        <th> {{ dict_data.v0 }} </th>
+                                                        <td> V<sub>0</sub> [V] </td>
+                                                        <td id="v0-module1"> {{ dict_data.v0 }} </td>
                                                     </tr>
                                                     <tr>
-                                                        <th> \( T_0 \) </th>
-                                                        <th> {{ dict_data.t0 }} \( {}^\circ {\rm C}\) </th>
+                                                        <td> T<sub>0</sub> [℃] </td>
+                                                        <td> {{ dict_data.t0 }} </td>
                                                     </tr>
                                                     <tr>
-                                                        <th> \( \Delta T_{\rm \textcolor{red}{High}} \) </th>
-                                                        <th> {{ dict_data.delta_t_h }} </th>
+                                                        <td> ΔT<sub>High</sub> [mV/℃] </td>
+                                                        <td> {{ dict_data.delta_t_h }} </td>
                                                     </tr>
                                                     <tr>
-                                                        <th> \( \Delta T^{\prime}_{\rm \textcolor{red}{High}} \) </th>
-                                                        <th> {{ dict_data.delta_t_h_prime }} </th>
+                                                        <td> ΔT'<sub>High</sub> [mV/℃<sup>2</sup>] </td>
+                                                        <td> {{ dict_data.delta_t_h_prime }}  </td>
                                                     </tr>
                                                     <tr>
-                                                        <th> \( \Delta T_{\rm \textcolor{blue}{Low}} \) </th>
-                                                        <th> {{ dict_data.delta_t_l }} </th>
+                                                        <td> ΔT<sub>Low</sub> [mV/℃] </td>
+                                                        <td> {{ dict_data.delta_t_l }} </td>
                                                     </tr>
                                                     <tr>
-                                                        <th> \( \Delta T^{\prime}_{\rm \textcolor{blue}{Low}} \) </th>
-                                                        <th> {{ dict_data.delta_t_l_prime }} </th>
-                                                    </tr>
-                                                    
-                                            
-                                                    
+                                                        <td> ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>] </td>
+                                                        <td> {{ dict_data.delta_t_l_prime }} </td>
+                                                    </tr>                                                    
                                                 </tbody>
                                             </table>
                                         </div>
@@ -149,8 +141,6 @@
 
     <script type=text/javascript src="{{ url_for('static', filename='js/plot.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/accordion.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/switch.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/button.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/form.js') }}"></script>
 </body>
 </html>
