@@ -99,6 +99,7 @@ $(document).ready(function() {
     });
 
 
+    // リセットしたらスイッチの状態確認して初期化を実行するようにしたいかも
     $('button.reset-button').on('click', function() {
         var moduleId = $(this).data('module-id');
         if (confirm("module" + moduleId + 'を再起動しますか？')) {
@@ -137,6 +138,11 @@ $(document).ready(function() {
                     alert('失敗');
                 } else if ( statusCode == 2 ) {
                     alert('Error: Out of Range');
+                } else if (statusCode == 0){
+                    if (type == "norm") {
+                        const switch_name = $("#module"+ moduleId +"-temp-corr-switch").attr('name');
+                        $("#module"+ moduleId +"-temp-corr-switch").removeClass('on').addClass('off').text(switch_name + ' OFF');
+                    }
                 }
             });
         }

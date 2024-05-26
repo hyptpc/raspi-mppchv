@@ -14,7 +14,7 @@ def save_mppc_data():
     with app.app_context():
         hv, curr, temp = [], [], []
         for i in range(4):
-            monitor_values = monitor(i)
+            monitor_values = monitor(i, verbose = False)
             hv.append(monitor_values[0])
             curr.append(monitor_values[1])
             temp.append(monitor_values[2])

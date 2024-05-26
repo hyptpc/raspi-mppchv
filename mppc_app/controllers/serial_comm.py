@@ -38,8 +38,9 @@ def save_log(module_id, cmd_tx, cmd_rx, status):
         db.session.commit()
 
 @flag_manager
-def monitor(module_id):
-    print("HPO")
+def monitor(module_id, verbose = True):
+    if verbose:
+        print("HPO")
     rng = np.random.default_rng()
     hv = rng.normal(50, 5+module_id)
     current = rng.normal(0.5, (module_id+1)/10)
