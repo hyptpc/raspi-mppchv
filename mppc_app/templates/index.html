@@ -10,7 +10,6 @@
     <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
     <!-- Plotly.js -->
     <script src="{{ url_for('static', filename='js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
-    <!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> -->
 </head>
 
 <body>
@@ -49,11 +48,11 @@
                                             <button class="apply-button" href=# name="temp-hv" data-module-id="1">apply</button>
                                         </div>
 
-                                        <!-- <div class="table-wrapper temp-corr">
+                                        <div class="table-wrapper temp-corr">
                                             <table class="temp-corr-table" id="temp-corr-table-1">
                                                 <thead>
                                                     <tr>
-                                                        <td colspan="2"> \( V_{\rm corr} = \frac{\Delta T^{\prime} (T - T_0)^2 + \Delta T (T - T_0) }{1000} + V_0 \)   </td>
+                                                        <td colspan="2" nowrap> V<sub>corr</sub> = ( ΔT'(T - T<sub>0</sub>)<sup>2</sup> + ΔT(T - T<sub>0</sub>))/1000 + V<sub>0</sub>   </td>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -86,7 +85,7 @@
                                                     
                                                 </tbody>
                                             </table>
-                                        </div> -->
+                                        </div>
 
                                     </div>
                                 </div>
