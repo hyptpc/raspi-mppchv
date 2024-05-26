@@ -112,6 +112,10 @@ table tbody tr:hover {
     border-bottom: 1px solid #2F3232;
 }
 
+.temp-corr {
+    overflow-x: scroll;
+}
+
 /* Sticky Table Styling */
 .sticky-table {
     overflow-y: scroll;
@@ -231,7 +235,7 @@ summary::-webkit-details-marker {
 }
 
 
-.temp-corr-func {
+/* .temp-corr-func {
     width: 90%;
     overflow-x: scroll;
-}
+} */

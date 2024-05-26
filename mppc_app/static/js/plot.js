@@ -49,7 +49,7 @@ function fetchMppcDataAndPlot() {
 $(document).ready(function() {
     fetchMppcDataAndPlot();
     $.getJSON('/_get_interval_time', function(data) {
-        const interval_time = data.interval_time * 1000;
-        setInterval(fetchMppcDataAndPlot, interval_time);
+        const intervalTime = data.interval_time * 1000;
+        setInterval(fetchMppcDataAndPlot, intervalTime);
     });
 });

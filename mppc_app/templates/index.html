@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPPC HV Controller</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- jQuery -->
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <!-- Plotly.js -->
+    <script src="{{ url_for('static', filename='js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
+    <!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> -->
 </head>
 
 <body>
@@ -39,14 +44,50 @@
                                 <div class="details-content">
                                     <div class="content-inner">
                                         <div id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></div>
-                                        <div>                                           <input type="number" name="module1-delta-t1" placeholder="Enter delta-T1"> 
-                                        <input type="number" name="module1-delta-t2" placeholder="Enter delta-T1"> 
-                                        <input type="number" name="module1-t0" placeholder="Enter T0 [℃]"> 
-                                        <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
-                                        <button class="apply-button" href=# name="temp-hv" data-module-id="1">apply</button>
-                                    </div>
+                                        <div>
+                                            <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
+                                            <button class="apply-button" href=# name="temp-hv" data-module-id="1">apply</button>
+                                        </div>
 
-                                        <div class="temp-corr-func">\[ V_{\rm corr} = \frac{\Delta T^{\prime} (T - T_0)^2 + \Delta T (T - T_0) }{1000} + V_0 \]</div>
+                                        <!-- <div class="table-wrapper temp-corr">
+                                            <table class="temp-corr-table" id="temp-corr-table-1">
+                                                <thead>
+                                                    <tr>
+                                                        <td colspan="2"> \( V_{\rm corr} = \frac{\Delta T^{\prime} (T - T_0)^2 + \Delta T (T - T_0) }{1000} + V_0 \)   </td>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <th> \( V_0 \) </th>
+                                                        <th> {{ dict_data.v0 }} </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th> \( T_0 \) </th>
+                                                        <th> {{ dict_data.t0 }} \( {}^\circ {\rm C}\) </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th> \( \Delta T_{\rm \textcolor{red}{High}} \) </th>
+                                                        <th> {{ dict_data.delta_t_h }} </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th> \( \Delta T^{\prime}_{\rm \textcolor{red}{High}} \) </th>
+                                                        <th> {{ dict_data.delta_t_h_prime }} </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th> \( \Delta T_{\rm \textcolor{blue}{Low}} \) </th>
+                                                        <th> {{ dict_data.delta_t_l }} </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th> \( \Delta T^{\prime}_{\rm \textcolor{blue}{Low}} \) </th>
+                                                        <th> {{ dict_data.delta_t_l_prime }} </th>
+                                                    </tr>
+                                                    
+                                            
+                                                    
+                                                </tbody>
+                                            </table>
+                                        </div> -->
+
                                     </div>
                                 </div>
                             </details>
@@ -107,13 +148,6 @@
 
     </div> <!-- grid-container -->
 
-    <!-- D3.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-    <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <!-- Calculation -->
     <script type=text/javascript src="{{ url_for('static', filename='js/plot.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/accordion.js') }}"></script>
     <script type=text/javascript src="{{ url_for('static', filename='js/switch.js') }}"></script>
