@@ -6,6 +6,10 @@ VMAX_MODULE2: 60
 VMAX_MODULE3: 60
 VMAX_MODULE4: 60
 
+# interval time setting [sec]
+PLOT_INTERVAL: 5
+MONITORING_INTERVAL: 5
+
 # database setting
 SQLALCHEMY_DATABASE_URI: "sqlite:///log.db"
 SQLALCHEMY_BINDS:

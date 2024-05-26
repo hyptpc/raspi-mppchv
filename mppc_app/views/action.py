@@ -29,7 +29,7 @@ def save_mppc_data():
 
 # スケジューラのセットアップ
 scheduler = BackgroundScheduler()
-scheduler.add_job(save_mppc_data, 'interval', seconds=5)
+scheduler.add_job(save_mppc_data, 'interval', seconds=app.config["MONITORING_INTERVAL"])
 scheduler.start()
 
 @action_bp.route('/_fetch_mppc_data')
@@ -46,9 +46,11 @@ def fetch_mppc_data():
             data.hv4, data.curr4*10, data.temp4,
         ] for data in latest_data
     ]).T.tolist()
-    graph_data = {"x": x, "y": y}
-    graph_data_JSON = json.dumps(graph_data)
-    return jsonify(graph_data=graph_data_JSON)
+    return jsonify({"x": x, "y": y})
+
+@action_bp.route("/_get_interval_time")
+def get_interval_time():
+    return jsonify({"interval_time": app.config["PLOT_INTERVAL"]})
 
 @action_bp.route('/_fetch_log')
 def fetch_log():
