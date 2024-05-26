@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, jsonify
 from mppc_app import app, db
-from mppc_app.controllers.serial_comm import monitor, get_status, turn_on, turn_off, reset
+from mppc_app.controllers.serial_comm import monitor, get_status, set_hv, turn_on, turn_off, reset
 from mppc_app.models.log import Log
 from mppc_app.models.mppc_data import MPPC_data
 action_bp = Blueprint('action', __name__)
@@ -98,8 +98,15 @@ def send_cmd():
 @action_bp.route('/_change_hv')
 def change_hv():
     module_id = request.args.get('module_id', type=int)
-    hv = request.args.get('module_id', type=int)
-
+    hv = request.args.get('hv_value', type=float)
+    name = request.args.get('name', type=str)
+    print(name)
+    
+    if (hv < 0 or app.config["VMAX_MODULE{}".format(module_id)] < hv):
+        return jsonify({'status_code': 2}) # out of range
+    is_success = set_hv(module_id, hv)
+    status_code = 0 if is_success else 1
+    return jsonify({'status_code': status_code}) 
 
 @action_bp.route('/_check_status')
 def check_status():

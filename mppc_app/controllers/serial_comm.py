@@ -69,6 +69,17 @@ def get_temp(module_id):
     return temp
 
 @flag_manager
+def set_hv(module_id, hv):
+    rng  = np.random.default_rng()
+    print("HBV")
+    rng = np.random.default_rng()
+    is_success = False
+    if rng.random() > 0.5:
+        is_success = True
+    save_log(module_id=module_id, cmd_tx="HBV{}".format(hv), cmd_rx="hbv", status=is_success)
+    return is_success
+
+@flag_manager
 def turn_on(module_id):
     print("HON")
     rng = np.random.default_rng()
