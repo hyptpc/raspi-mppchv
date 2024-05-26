@@ -11,7 +11,6 @@ import json
 from datetime import datetime
 
 def save_mppc_data():
-    print(app.config["VMAX_MODULE1"])
     with app.app_context():
         hv, curr, temp = [], [], []
         for i in range(4):
