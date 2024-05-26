@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPPC HV Controller</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
 <body>
@@ -13,7 +14,6 @@
         <!-- left region -->
         <div class="left-container">
             <h1 class = "title"> MPPC HV Controller </h1>
-
             <div class="module-manager-container">
                 <!-- left column -->
                 <div>
@@ -23,7 +23,7 @@
                             <legend>module1</legend>
 
                             <!-- Manage HV -->
-                            <span id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></span>
+                            <div id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></div>
                             <div>
                                 <input type="number" placeholder="Enter HV [V]" id="hv-form-1">
                                 <button class="apply-button" href=# name="norm-hv" data-module-id="1">apply</button>
@@ -38,13 +38,15 @@
                                 </summary>
                                 <div class="details-content">
                                     <div class="content-inner">
-                                        <span id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></span>
-
-                                        <input type="number" name="module1-delta-t1" placeholder="Enter delta-T1"> 
+                                        <div id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></div>
+                                        <div>                                           <input type="number" name="module1-delta-t1" placeholder="Enter delta-T1"> 
                                         <input type="number" name="module1-delta-t2" placeholder="Enter delta-T1"> 
                                         <input type="number" name="module1-t0" placeholder="Enter T0 [℃]"> 
                                         <input type="number" name="module1-v0" placeholder="Enter V0 [V]"> 
                                         <button class="apply-button" href=# name="temp-hv" data-module-id="1">apply</button>
+                                    </div>
+
+                                        <div class="temp-corr-func">\[ V_{\rm corr} = \frac{\Delta T^{\prime} (T - T_0)^2 + \Delta T (T - T_0) }{1000} + V_0 \]</div>
                                     </div>
                                 </div>
                             </details>

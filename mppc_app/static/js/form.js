@@ -31,6 +31,7 @@ $(document).ready(function() {
         } else if (confirm("module" + moduleId + 'のhvを' + hvValue + "にしますか？")) {
             $.getJSON('/_change_hv', { module_id: moduleId, hv_value: hvValue, name: name }, function(data) {
                 var statusCode = data.status_code;
+                fetchLogDataAndFillTable();
                 if (statusCode == 1) {
                     alert('失敗');
                 } else if ( statusCode == 2 ) {
@@ -39,6 +40,5 @@ $(document).ready(function() {
             });
         }
         hvForm.val('');
-        fetchLogDataAndFillTable();
     });
 });

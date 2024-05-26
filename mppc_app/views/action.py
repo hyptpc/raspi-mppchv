@@ -61,7 +61,6 @@ def fetch_log():
 
     return jsonify(logs=logs)
 
-
 # スイッチの初期状態を返すエンドポイント
 @app.route('/_get_switch_status')
 def get_switch_status():

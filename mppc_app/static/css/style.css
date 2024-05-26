@@ -229,3 +229,9 @@ summary::-webkit-details-marker {
     display: block;
     gap: 16px;
 }
+
+
+.temp-corr-func {
+    width: 90%;
+    overflow-x: scroll;
+}
