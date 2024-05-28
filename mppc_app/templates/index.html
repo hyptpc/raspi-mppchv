@@ -23,14 +23,14 @@
         <!-- module1, 3 -->
         <div>
 
-          <!-- module1 -->
+          {% for module_id in [1, 3] %}
           <div><fieldset>
-            <legend>Module1</legend>
+            <legend>Module{{ module_id }}</legend>
             <!-- Manage HV -->
-            <div class="switch off" id="module1HVSwitch" data-switch.type="HV" data-module.id="1"></div>
+            <div class="switch off" id="module{{module_id}}HVSwitch" data-switch.type="HV" data-module.id="{{module_id}}"></div>
             <div>
-              <input type="number" placeholder="Enter HV [V]" id="module1NormHVForm">
-              <button class="apply-button" href=# data-hv.type="Norm" data-module.id="1">apply</button>
+              <input type="number" placeholder="Enter HV [V]" id="module{{module_id}}NormHVForm">
+              <button class="apply-button" href=# data-hv.type="Norm" data-module.id="{{module_id}}">apply</button>
             </div>
 
             <!-- Manage Temp correction -->
@@ -41,10 +41,10 @@
               <div class="details-content"><div class="content-inner">
 
                 <!-- switch and form-button -->
-                <div class="switch off" id="module1TempCorrSwitch" data-switch.type="Temp" data-module.id="1"></div>
+                <div class="switch off" id="module{{module_id}}TempCorrSwitch" data-switch.type="Temp" data-module.id="{{module_id}}"></div>
                 <div>
-                  <input type="number" placeholder="Enter V0 [V]" id="module1TempHVForm">
-                  <button class="apply-button" href=# data-hv.type="Temp" data-module.id="1">apply</button>
+                  <input type="number" placeholder="Enter V0 [V]" id="module{{module_id}}TempHVForm">
+                  <button class="apply-button" href=# data-hv.type="Temp" data-module.id="{{module_id}}">apply</button>
                 </div>
                 
                 <!-- temp corr param table -->
@@ -53,7 +53,7 @@
                     <tbody>
                       <tr>
                         <td>V<sub>0</sub> [V]</td>
-                        <td id="module1V0">{{ param_data.v0 }}</td>
+                        <td id="module{{module_id}}V0">{{ param_data.v0 }}</td>
                       </tr>
                       <tr>
                         <td>T<sub>0</sub> [℃]</td>
@@ -87,23 +87,101 @@
                 <span class="summary-inner">Status<span class="accordion-icon"></span></span>
               </summary>
               <div class="details-content"><div class="content-inner">
-                <button class="custom-button status-button" href=# data-module.id="1">Check status</button>
+                <button class="custom-button status-button" href=# data-module.id="{{module_id}}">Check status</button>
                 <div class="table-wrapper">
-                  <table class="status-table" id="module1StatusTable">
+                  <table class="status-table" id="module{{module_id}}StatusTable">
                     <tbody></tbody>
                   </table>
                 </div>
-                <button class="custom-button reset-button" href=# data-module.id="1">RESET Module1</button>
+                <button class="custom-button reset-button" href=# data-module.id="{{module_id}}">RESET Module{{module_id}}</button>
               </div></div>
             </details> <!-- Manage Status -->
 
-          </fieldset></div> <!-- module1 -->
-
+          </fieldset></div>
+          {% endfor %}
+          
         </div> <!-- module1, 3 -->
 
         <!-- module2, 4 -->
         <div>
 
+          {% for module_id in [2, 4] %}
+          <div><fieldset>
+            <legend>Module{{ module_id }}</legend>
+            <!-- Manage HV -->
+            <div class="switch off" id="module{{module_id}}HVSwitch" data-switch.type="HV" data-module.id="{{module_id}}"></div>
+            <div>
+              <input type="number" placeholder="Enter HV [V]" id="module{{module_id}}NormHVForm">
+              <button class="apply-button" href=# data-hv.type="Norm" data-module.id="{{module_id}}">apply</button>
+            </div>
+
+            <!-- Manage Temp correction -->
+            <details class="details">
+              <summary class="details-summary">
+                <span class="summary-inner">Temp. Corr.<span class="accordion-icon"></span></span>
+              </summary>
+              <div class="details-content"><div class="content-inner">
+
+                <!-- switch and form-button -->
+                <div class="switch off" id="module{{module_id}}TempCorrSwitch" data-switch.type="Temp" data-module.id="{{module_id}}"></div>
+                <div>
+                  <input type="number" placeholder="Enter V0 [V]" id="module{{module_id}}TempHVForm">
+                  <button class="apply-button" href=# data-hv.type="Temp" data-module.id="{{module_id}}">apply</button>
+                </div>
+                
+                <!-- temp corr param table -->
+                <div class="table-wrapper">
+                  <table class="temp-corr-param-table">
+                    <tbody>
+                      <tr>
+                        <td>V<sub>0</sub> [V]</td>
+                        <td id="module{{module_id}}V0">{{ param_data.v0 }}</td>
+                      </tr>
+                      <tr>
+                        <td>T<sub>0</sub> [℃]</td>
+                        <td>{{ param_data.t0 }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT<sub>High</sub> [mV/℃]</td>
+                        <td>{{ param_data.delta_t_h }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT'<sub>High</sub> [mV/℃<sup>2</sup>]</td>
+                        <td>{{ param_data.delta_t_h_prime }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT<sub>Low</sub> [mV/℃]</td>
+                        <td>{{ param_data.delta_t_l }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>]</td>
+                        <td>{{ param_data.delta_t_l_prime }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div></div> <!-- temp corr param table -->
+            </details> <!-- Manage Temp correction -->
+
+            <!-- Manage Status -->
+            <details class="details">
+              <summary class="details-summary">
+                <span class="summary-inner">Status<span class="accordion-icon"></span></span>
+              </summary>
+              <div class="details-content"><div class="content-inner">
+                <button class="custom-button status-button" href=# data-module.id="{{module_id}}">Check status</button>
+                <div class="table-wrapper">
+                  <table class="status-table" id="module{{module_id}}StatusTable">
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <button class="custom-button reset-button" href=# data-module.id="{{module_id}}">RESET Module{{module_id}}</button>
+              </div></div>
+            </details> <!-- Manage Status -->
+
+          </fieldset></div>
+          {% endfor %}
+          
         </div> <!-- module2, 4 -->
 
       </div> <!-- module-manager-container -->
@@ -132,7 +210,7 @@
     <div class="right-container">
       <div id="trendGraph"></div>
     </div> <!-- right region -->
-    
+
   </div> <!-- grid-container -->
 
   <script type="text/javascript" src="{{ url_for('static', filename='js/plot.js') }}"></script>

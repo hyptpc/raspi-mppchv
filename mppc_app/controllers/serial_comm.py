@@ -17,7 +17,7 @@ flag_modules = [ flag_module1, flag_module2, flag_module3, flag_module4 ]
 def flag_manager(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        flag = flag_modules[args[0]]
+        flag = flag_modules[args[0]-1]
         while flag.is_set():
             time.sleep(0.1)
         flag.set()
