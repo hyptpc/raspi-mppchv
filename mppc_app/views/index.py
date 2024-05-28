@@ -1,10 +1,10 @@
 from mppc_app import app
-from flask import Blueprint, render_template, request, redirect
+from flask import Blueprint, render_template
 index_bp = Blueprint('index', __name__)
 
 @index_bp.route("/")
 def index():
-    dict_data = dict(
+    param_data = dict(
         v0 = app.config["V0"],
         t0 = app.config["T0"],
         delta_t_h       = app.config["DELTA_T_HIGH"],
@@ -12,4 +12,4 @@ def index():
         delta_t_l       = app.config["DELTA_T_LOW"],
         delta_t_l_prime = app.config["DELTA_T_LOW_PRIME"]    
     )
-    return render_template('index.html', dict_data=dict_data)
+    return render_template('index.html', param_data=param_data)

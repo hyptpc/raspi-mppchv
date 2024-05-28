@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, jsonify
+from flask import Blueprint, request, jsonify
 from mppc_app import app, db
 from mppc_app.controllers.serial_comm import monitor, get_status, set_hv, set_temp_corr, turn_on, turn_off, reset
 from mppc_app.models.log import Log
@@ -7,7 +7,7 @@ action_bp = Blueprint('action', __name__)
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import numpy as np
-import json
+# import json
 from datetime import datetime
 
 def save_mppc_data():
@@ -32,60 +32,61 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(save_mppc_data, 'interval', seconds=app.config["MONITORING_INTERVAL"])
 scheduler.start()
 
+@action_bp.route("/_get_interval_time")
+def get_interval_time():
+    return jsonify({"intervalTime": app.config["PLOT_INTERVAL"]})
+
 @action_bp.route('/_fetch_mppc_data')
 def fetch_mppc_data():
     n = MPPC_data.query.count()
     n_show = 100
     latest_data = MPPC_data.query.offset(n-n_show).limit(n_show).all()
     x = [ data.time.isoformat() for data in latest_data]
+    curr_plot_factor = 10
     y = np.array([
         [
-            data.hv1, data.curr1*10, data.temp1,
-            data.hv2, data.curr2*10, data.temp2,
-            data.hv3, data.curr3*10, data.temp3,
-            data.hv4, data.curr4*10, data.temp4,
+            data.hv1, data.curr1*curr_plot_factor, data.temp1,
+            data.hv2, data.curr2*curr_plot_factor, data.temp2,
+            data.hv3, data.curr3*curr_plot_factor, data.temp3,
+            data.hv4, data.curr4*curr_plot_factor, data.temp4,
         ] for data in latest_data
     ]).T.tolist()
     return jsonify({"x": x, "y": y})
-
-@action_bp.route("/_get_interval_time")
-def get_interval_time():
-    return jsonify({"interval_time": app.config["PLOT_INTERVAL"]})
 
 @action_bp.route('/_fetch_log')
 def fetch_log():
     n = Log.query.count()
     n_show = 30
     latest_log = Log.query.offset(n-n_show).limit(n_show).all()[::-1]
-    logs = [dict( time=log.time, module_id=log.module_id, cmd_tx=log.cmd_tx, cmd_rx=log.cmd_rx, status=log.status ) for log in latest_log]
-
+    logs = [dict( time=log.time, moduleId=log.module_id, cmd_tx=log.cmd_tx, cmd_rx=log.cmd_rx, status=log.status ) for log in latest_log]
     return jsonify(logs=logs)
 
-# スイッチの初期状態を返すエンドポイント
 @app.route('/_get_switch_status')
 def get_switch_status():
     # ここでJavaScriptから送信されたモジュールIDとスイッチの名前を受け取る
-    module_id = request.args.get('module_id', type=int)
-    switch_name = request.args.get('name', type=str)
+    module_id = request.args.get('moduleId', type=int)
+    switch_type = request.args.get('type', type=str)
+
+    print(module_id, switch_type)
 
     status = get_status(module_id)
     initial_state = 'off'
-    initial_text = switch_name + ' OFF'
-    if switch_name == "HV":
+    initial_text = switch_type + ' OFF'
+    if switch_type == "HV":
         if status["hv_output"]:
             initial_state = 'on'
-            initial_text = switch_name + ' ON'
-    elif switch_name == "Temp":
+            initial_text = switch_type + ' ON'
+    elif switch_type == "Temp":
         if status["temp_corr"]:
             initial_state = 'on'
-            initial_text = switch_name + ' ON'
+            initial_text = switch_type + ' ON'
         
     return jsonify({'state': initial_state, 'text': initial_text})
 
 @action_bp.route('/_send_cmd')
 def send_cmd():
-    module_id = request.args.get('module_id', type=int)
-    cmd_type  = request.args.get('cmd_type', type=str)
+    module_id = request.args.get('moduleId', type=int)
+    cmd_type  = request.args.get('cmdType', type=str)
     is_success = False
     if cmd_type == "on":
         is_success = turn_on(module_id)
@@ -94,29 +95,28 @@ def send_cmd():
     elif cmd_type == "reset":
         is_success = reset(module_id)
 
-    return jsonify({'is_success': is_success})
+    return jsonify({'isSuccess': is_success})
 
 @action_bp.route('/_change_hv')
 def change_hv():
-    module_id = request.args.get('module_id', type=int)
-    hv = request.args.get('hv_value', type=float)
-    hv_type = request.args.get('name', type=str)
+    module_id = request.args.get('moduleId', type=int)
+    hv_value = request.args.get('hvValue', type=float)
+    hv_type = request.args.get('hvType', type=str)
     
-    if (hv < 0 or app.config["VMAX_MODULE{}".format(module_id)] < hv):
-        return jsonify({'status_code': 2}) # out of range
+    if (hv_value < 0 or app.config["VMAX_MODULE{}".format(module_id)] < hv_value):
+        return jsonify({'statusCode': 2}) # out of range
     is_success = False
-    if hv_type == "norm":
-        is_success = set_hv(module_id, hv)
-    elif hv_type == "temp":
-        app.config["V0"] = hv
-        is_success = set_temp_corr(module_id, hv, app.config["T0"], app.config["DELTA_T_HIGH"], app.config["DELTA_T_HIGH_PRIME"], app.config["DELTA_T_LOW"], app.config["DELTA_T_LOW_PRIME"])
-    status_code = 0 if is_success else 1
-    return jsonify({'status_code': status_code}) 
+    if hv_type == "Norm":
+        is_success = set_hv(module_id, hv_value)
+    elif hv_type == "Temp":
+        app.config["V0"] = hv_value
+        is_success = set_temp_corr(module_id, hv_value, app.config["T0"], app.config["DELTA_T_HIGH"], app.config["DELTA_T_HIGH_PRIME"], app.config["DELTA_T_LOW"], app.config["DELTA_T_LOW_PRIME"])
+    return jsonify({'statusCode': 0 if is_success else 1}) 
 
 @action_bp.route('/_check_status')
 def check_status():
-    module_id = request.args.get('module_id', type=int)
-    status = get_status(module_id)
+    module_id = request.args.get('moduleId', type=int)
+    status_dict = get_status(module_id)
     detail_status = []
     detail_status.append(
         dict(
@@ -128,44 +128,44 @@ def check_status():
     detail_status.append(
         dict(
             label = "HV Output",
-            value = "ON" if status["hv_output"] else "OFF",
-            bit   = status["hv_output"]
+            value = "ON" if status_dict["hv_output"] else "OFF",
+            bit   = status_dict["hv_output"]
         )
     )
     detail_status.append(
         dict(
             label = "Overcurrent Protection",
-            value = "Active" if status["over_curr_prot"] else "Not Active",
-            bit   = status["over_curr_prot"]
+            value = "Active" if status_dict["over_curr_prot"] else "Not Active",
+            bit   = status_dict["over_curr_prot"]
         )
     )
     detail_status.append(
         dict(
             label = "Current Value",
-            value = "Out of Spec" if status["over_curr"] else "Within Spec",
-            bit   = status["over_curr"]
+            value = "Out of Spec" if status_dict["over_curr"] else "Within Spec",
+            bit   = status_dict["over_curr"]
         )
     )
     detail_status.append(
         dict(
             label = "Temp Sensor Connection",
-            value = "Connected" if status["with_temp_sens"] else "Not Connected",
-            bit   = status["with_temp_sens"]
+            value = "Connected" if status_dict["with_temp_sens"] else "Not Connected",
+            bit   = status_dict["with_temp_sens"]
         )
     )
     detail_status.append(
         dict(
             label = "Temp Range",
-            value = "Out of Spec" if status["over_temp"] else "Within Spec",
-            bit   = status["over_temp"]
+            value = "Out of Spec" if status_dict["over_temp"] else "Within Spec",
+            bit   = status_dict["over_temp"]
         )
     )
     detail_status.append(
         dict(
             label = "Temp Correction",
-            value = "Enabled" if status["temp_corr"] else "Disabled",
-            bit   = status["temp_corr"]
+            value = "Enabled" if status_dict["temp_corr"] else "Disabled",
+            bit   = status_dict["temp_corr"]
         )
     )
 
-    return jsonify(detail_status=detail_status)
+    return jsonify(detailStatus=detail_status)

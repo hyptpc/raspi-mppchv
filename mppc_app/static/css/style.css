@@ -4,21 +4,21 @@
     grid-template-columns: 40% 60%;
 }
 
-/* Module Manager Container */
+/* Left Column in Module Manager */
 .module-manager-container {
     display: grid;
     grid-template-columns: 50% 50%;
+}
+
+/* Title */
+.app-title {
+    margin: 2px 1%;
 }
 
 /* Fieldset Legend */
 legend {
     padding: 1%;
     font-weight: bold;
-}
-
-/* Title */
-.title {
-    margin: 2px 1%;
 }
 
 
@@ -30,7 +30,7 @@ input {
     font-size: 100%;
 }
 
-/* Custom Buttons */
+/* Apply Button */
 .apply-button {
     width: 25%;
     height: 35px;
@@ -55,6 +55,7 @@ input {
     transform: translateY(5px);
 }
 
+/* Custom Button */
 .custom-button {
     width: 90%;
     margin-left: 5%;
@@ -62,18 +63,18 @@ input {
     height: 50px;
     text-align: center;
     font-weight: bold;
-    border: 1px solid #27acd9;;
+    border: 1px solid #27acd9;
     font-family: 'Lato', sans-serif;
     font-size: 100%;
     background: #ffffff;
-    color: #27acd9;;
+    color: #27acd9;
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.1s ease;
 }
 
 .custom-button:hover {
-    background: #27acd9;;
+    background: #27acd9;
     color: #ffffff;
 }
 
@@ -81,7 +82,6 @@ input {
     box-shadow: none;
     transform: translateY(5px);
 }
-
 
 /* Table Wrapper */
 .table-wrapper {
@@ -95,38 +95,37 @@ table {
     text-align: center;
     border-collapse: collapse;
 }
+
 th, td {
     padding: 5px;
 }
+
 table tbody tr {
     transition: all 0.1s ease;
     border-bottom: 1px solid #E6E6E6;
 }
+
 table tbody tr:hover {
     background: #2F3232;
     color: #ffffff;
 }
 
-.status-table tr {
+/* Status and Temp Corr Tables */
+.status-table tr,
+.temp-corr-param-table tr {
     border-top: 1px solid #2F3232;
     border-bottom: 1px solid #2F3232;
 }
 
-.temp-corr-table tr {
-    border-top: 1px solid #2F3232;
-    border-bottom: 1px solid #2F3232;
-}
-
-
-/* Sticky Table Styling */
+/* Sticky Table */
 .sticky-table {
     overflow-y: scroll;
     border: 1px solid var(--border-color);
     border-right: none;
     height: 300pt;
 }
+
 #log-table thead {
-    /* background: #E6E6F0; */
     position: sticky;
     top: 0;
     z-index: 2;
@@ -143,7 +142,6 @@ table tbody tr:hover {
     color: #f44336;
     font-weight: bold;
 }
-
 
 /* Switches */
 .switch {
@@ -190,7 +188,7 @@ summary::-webkit-details-marker {
 }
 
 /* Accordion Icon */
-.icon {
+.accordion-icon {
     display: block;
     position: relative;
     width: 24px;
@@ -200,12 +198,12 @@ summary::-webkit-details-marker {
     transition: transform 0.4s;
 }
 
-.details-summary.is-active .icon {
+.details-summary.is-active .accordion-icon {
     transform: rotate(180deg);
 }
 
-.icon::before,
-.icon::after {
+.accordion-icon::before,
+.accordion-icon::after {
     content: "";
     position: absolute;
     display: block;
@@ -214,12 +212,12 @@ summary::-webkit-details-marker {
     background-color: #7050ff;
 }
 
-.icon::before {
+.accordion-icon::before {
     left: 0;
     transform: rotate(45deg);
 }
 
-.icon::after {
+.accordion-icon::after {
     right: 0;
     transform: rotate(-45deg);
 }

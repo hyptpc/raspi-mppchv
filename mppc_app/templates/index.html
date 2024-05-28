@@ -1,146 +1,142 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MPPC HV Controller</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
-    
-    <!-- jQuery -->
-    <script src="{{ url_for('static', filename='external_js/jquery-3.7.1.min.js') }}"></script>
-    <!-- Plotly.js -->
-    <script src="{{ url_for('static', filename='external_js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MPPC HV Controller</title>
+  <!-- style -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <!-- jQuery -->
+  <script src="{{ url_for('static', filename='external_js/jquery-3.7.1.min.js') }}"></script>
+  <!-- Plotly.js -->
+  <script src="{{ url_for('static', filename='external_js/plotly-2.32.0.min.js') }}" charset="utf-8"></script>
 </head>
 
 <body>
-    <div class="grid-container">
+  <div class="grid-container">
+    
+    <!-- left region -->
+    <div class="left-container">
+      <h1 class="app-title">MPPC HV Controller</h1>
 
-        <!-- left region -->
-        <div class="left-container">
-            <h1 class = "title"> MPPC HV Controller </h1>
-            <div class="module-manager-container">
-                <!-- left column -->
-                <div>
-                    <!-- module1 -->
-                    <div class="module1-block">
-                        <fieldset>
-                            <legend>module1</legend>
+      <div class="module-manager-container">
+        <!-- module1, 3 -->
+        <div>
 
-                            <!-- Manage HV -->
-                            <div id="module1-hv-switch" class="switch off" name="HV" data-module-id="1"></div>
-                            <div>
-                                <input type="number" placeholder="Enter HV [V]" id="hv-form-norm-1">
-                                <button class="apply-button" href=# data-hv-type="norm" data-module-id="1">apply</button>
-                            </div>
-
-                            <!-- Manage Temp correction -->
-                            <details class="details">
-                                <summary class="details-summary">
-                                    <span class="summary-inner">
-                                        Temp. Corr.<span class="icon"></span>
-                                    </span>
-                                </summary>
-                                <div class="details-content">
-                                    <div class="content-inner">
-                                        <div id="module1-temp-corr-switch" class="switch off" name="Temp" data-module-id="1"></div>
-                                        <div>
-                                            <input type="number" placeholder="Enter V0 [V]" id="hv-form-temp-1"> 
-                                            <button class="apply-button" href=# data-hv-type="temp" data-module-id="1">apply</button>
-                                        </div>
-
-                                        <div class="table-wrapper">
-                                            <table class="temp-corr-table" id="temp-corr-table-1">
-                                                <tbody>
-                                                    <tr>
-                                                        <td> V<sub>0</sub> [V] </td>
-                                                        <td id="v0-module1"> {{ dict_data.v0 }} </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td> T<sub>0</sub> [℃] </td>
-                                                        <td> {{ dict_data.t0 }} </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td> ΔT<sub>High</sub> [mV/℃] </td>
-                                                        <td> {{ dict_data.delta_t_h }} </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td> ΔT'<sub>High</sub> [mV/℃<sup>2</sup>] </td>
-                                                        <td> {{ dict_data.delta_t_h_prime }}  </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td> ΔT<sub>Low</sub> [mV/℃] </td>
-                                                        <td> {{ dict_data.delta_t_l }} </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td> ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>] </td>
-                                                        <td> {{ dict_data.delta_t_l_prime }} </td>
-                                                    </tr>                                                    
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </details>
-        
-                            <!-- Manage Status -->
-                            <details class="details">
-                                <summary class="details-summary">
-                                    <span class="summary-inner">
-                                        Status<span class="icon"></span>
-                                    </span>
-                                </summary>
-                                <div class="details-content">
-                                    <div class="content_inner">
-                                        <button class="custom-button status-button" href=# data-module-id="1">Check status</button>
-                                        <div class="table-wrapper">
-                                            <table class="status-table" id="status-table-1">
-                                                <tbody></tbody>
-                                            </table>
-                                        </div>
-                                        <button class="custom-button reset-button" href=# data-module-id="1">RESET Module1</button>
-                                    </div>
-                                </div>
-                            </details>
-                        </fieldset>
-                    </div>
-
-                </div> <!-- left column -->
-
-                <!-- right column -->
-                <div>
-
-                </div> <!-- right column -->
-            </div> <!-- module-manager-container -->
-
-            <div class="table-wrapper">
-            <div  class="sticky-table">
-            <table class="table" id="log-table">
-                <thead>
-                    <tr>
-                        <th class="sticky">time</th>
-                        <th class="sticky">module</th>
-                        <th class="sticky">cmd tx</th>
-                        <th class="sticky">cmd rx</th>
-                        <th class="sticky">status</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+          <!-- module1 -->
+          <div><fieldset>
+            <legend>Module1</legend>
+            <!-- Manage HV -->
+            <div class="switch off" id="module1HVSwitch" data-switch.type="HV" data-module.id="1"></div>
+            <div>
+              <input type="number" placeholder="Enter HV [V]" id="module1NormHVForm">
+              <button class="apply-button" href=# data-hv.type="Norm" data-module.id="1">apply</button>
             </div>
+
+            <!-- Manage Temp correction -->
+            <details class="details">
+              <summary class="details-summary">
+                <span class="summary-inner">Temp. Corr.<span class="accordion-icon"></span></span>
+              </summary>
+              <div class="details-content"><div class="content-inner">
+
+                <!-- switch and form-button -->
+                <div class="switch off" id="module1TempCorrSwitch" data-switch.type="Temp" data-module.id="1"></div>
+                <div>
+                  <input type="number" placeholder="Enter V0 [V]" id="module1TempHVForm">
+                  <button class="apply-button" href=# data-hv.type="Temp" data-module.id="1">apply</button>
+                </div>
+                
+                <!-- temp corr param table -->
+                <div class="table-wrapper">
+                  <table class="temp-corr-param-table">
+                    <tbody>
+                      <tr>
+                        <td>V<sub>0</sub> [V]</td>
+                        <td id="module1V0">{{ param_data.v0 }}</td>
+                      </tr>
+                      <tr>
+                        <td>T<sub>0</sub> [℃]</td>
+                        <td>{{ param_data.t0 }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT<sub>High</sub> [mV/℃]</td>
+                        <td>{{ param_data.delta_t_h }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT'<sub>High</sub> [mV/℃<sup>2</sup>]</td>
+                        <td>{{ param_data.delta_t_h_prime }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT<sub>Low</sub> [mV/℃]</td>
+                        <td>{{ param_data.delta_t_l }}</td>
+                      </tr>
+                      <tr>
+                        <td>ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>]</td>
+                        <td>{{ param_data.delta_t_l_prime }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div></div> <!-- temp corr param table -->
+            </details> <!-- Manage Temp correction -->
+
+            <!-- Manage Status -->
+            <details class="details">
+              <summary class="details-summary">
+                <span class="summary-inner">Status<span class="accordion-icon"></span></span>
+              </summary>
+              <div class="details-content"><div class="content-inner">
+                <button class="custom-button status-button" href=# data-module.id="1">Check status</button>
+                <div class="table-wrapper">
+                  <table class="status-table" id="module1StatusTable">
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <button class="custom-button reset-button" href=# data-module.id="1">RESET Module1</button>
+              </div></div>
+            </details> <!-- Manage Status -->
+
+          </fieldset></div> <!-- module1 -->
+
+        </div> <!-- module1, 3 -->
+
+        <!-- module2, 4 -->
+        <div>
+
+        </div> <!-- module2, 4 -->
+
+      </div> <!-- module-manager-container -->
+
+      <!-- Log Table -->
+      <div class="table-wrapper">
+        <div class="sticky-table">
+          <table class="table" id="log-table">
+            <thead>
+              <tr>
+                <th class="sticky">time</th>
+                <th class="sticky">module</th>
+                <th class="sticky">cmd tx</th>
+                <th class="sticky">cmd rx</th>
+                <th class="sticky">status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-            
-        </div> <!-- left-container -->
+      </div><!-- Log Table -->
 
-        <!-- right region -->
-        <div class="right-container">
-            <div id="trend-graph"></div>
-        </div> <!-- right-container -->
+    </div> <!-- left region -->
 
-    </div> <!-- grid-container -->
+    <!-- right region -->
+    <div class="right-container">
+      <div id="trendGraph"></div>
+    </div> <!-- right region -->
+    
+  </div> <!-- grid-container -->
 
-    <script type=text/javascript src="{{ url_for('static', filename='js/plot.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/accordion.js') }}"></script>
-    <script type=text/javascript src="{{ url_for('static', filename='js/button.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/plot.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/accordion.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/button.js') }}"></script>
 </body>
 </html>

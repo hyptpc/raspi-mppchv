@@ -41,7 +41,7 @@ function fetchMppcDataAndPlot() {
             grid: {rows: 2, columns: 2, pattern: 'independent'},
         };
 
-        Plotly.newPlot('trend-graph', trace, layout);
+        Plotly.newPlot('trendGraph', trace, layout);
     });
 }
 
@@ -49,7 +49,7 @@ function fetchMppcDataAndPlot() {
 $(document).ready(function() {
     fetchMppcDataAndPlot();
     $.getJSON('/_get_interval_time', function(data) {
-        const intervalTime = data.interval_time * 1000;
+        const intervalTime = data.intervalTime * 1000;
         setInterval(fetchMppcDataAndPlot, intervalTime);
     });
 });
