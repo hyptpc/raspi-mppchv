@@ -4,6 +4,7 @@ $(document).ready(function() {
     const accordionContent = '.details-content';
     const speed = 200;
 
+    // Function to toggle accordion open/close state
     function toggleAccordion($summary) {
         $summary.toggleClass("is-active");
         const $details = $summary.parent(accordionDetails);
@@ -19,6 +20,7 @@ $(document).ready(function() {
         }
     }
 
+    // Event listener for summary click
     $(accordionSummary).on("click", function(event) {
         event.preventDefault();
         toggleAccordion($(this));

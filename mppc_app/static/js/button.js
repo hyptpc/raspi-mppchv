@@ -1,8 +1,8 @@
 function fetchLogDataAndFillTable() {
     $.getJSON('/_fetch_log', function(data) {
-        // テーブルのtbodyを空にする
+        // Clear the tbody of the table
         $('#log-table tbody').empty();
-        // 結果をテーブルに追加
+        // Add results to the table
         $.each(data.logs, function(index, log) {
             var row = $('<tr>');
             row.append($('<td>').text(log.time));
@@ -13,43 +13,35 @@ function fetchLogDataAndFillTable() {
             $('#log-table tbody').append(row);
         });
     }).fail(function() {
-        alert('データの取得に失敗しました');
+        alert('Failed to fetch data');
     });
 }
 
-// スイッチ
 $(document).ready(function() {
     fetchLogDataAndFillTable();
-    // 各スイッチに対して初期状態を設定
+
+    // Initialize switch states
     $('.switch').each(function() {
         const switchElement = $(this);
         const moduleId = switchElement.data('module.id');
         const switchType = switchElement.data('switch.type');
- 
-        // 初期状態をサーバーから取得して設定
+
+        // Get and set initial state from server
         $.getJSON('/_get_switch_status', { moduleId: moduleId, type: switchType }, function(data) {
             const initialState = data.state;
-            const initialText  = data.text;
-            if (initialState === 'on') {
-                switchElement.addClass('on').removeClass('off').text(initialText);
-            } else {
-                switchElement.addClass('off').removeClass('on').text(initialText);
-            }
+            const initialText = data.text;
+            switchElement.addClass(initialState).removeClass(initialState === 'on' ? 'off' : 'on').text(initialText);
         });
 
         switchElement.on('click', function() {
-            // 現在のクラスが 'off' なら 'on' に変更する設定
             const isOff = switchElement.hasClass('off');
-            const confirmMessage = "Module" + moduleId + ': ' +'Do you want to turn ' + (isOff ? 'on?' : 'off?');;
-            // confirmMessage + (isOff ? 'on?' : 'off?');
+            const confirmMessage = "Module " + moduleId + ': Do you want to turn ' + (isOff ? 'on?' : 'off?');
 
             if (confirm(confirmMessage)) {
                 $.getJSON('/_send_cmd', { moduleId: moduleId, cmdType: isOff ? 'on' : 'off' }, function(data) {
                     fetchLogDataAndFillTable();
                     if (data.isSuccess) {
-                        switchElement.removeClass(isOff ? 'off' : 'on')
-                                     .addClass(isOff ? 'on' : 'off')
-                                     .text(switchType + ' ' + (isOff ? 'ON' : 'OFF'));
+                        switchElement.toggleClass('on off').text(switchType + ' ' + (isOff ? 'ON' : 'OFF'));
                     } else {
                         alert('Error: Failed');
                     }
@@ -57,24 +49,17 @@ $(document).ready(function() {
             }
         });
     });
-});
 
-
-// ボタン
-$(document).ready(function() {
-    // 全てのボタンに対してクリックイベントを設定
+    // Set click event for all status buttons
     $('button.status-button').on('click', function() {
         const moduleId = $(this).data('module.id');
-        
-        // 対応するテーブルのtbodyを特定する
-        const tableBody = $('#module' +  moduleId + 'StatusTable tbody');
-        
-        // サーバーから初期状態を取得して設定
+        const tableBody = $('#module' + moduleId + 'StatusTable tbody');
+
+        // Get and set initial state from server
         $.getJSON('/_check_status', { moduleId: moduleId }, function(data) {
-            // テーブルのtbodyを空にする
             tableBody.empty();
-            
-            // 結果をテーブルに追加
+
+            // Add results to the table
             $.each(data.detailStatus, function(index, status) {
                 var row = $('<tr>');
                 row.append($('<td>').text(status.label));
@@ -83,32 +68,27 @@ $(document).ready(function() {
                 tableBody.append(row);
             });
         }).fail(function() {
-            alert("Error: Fail to get data");
+            alert("Error: Failed to get data");
         });
     });
 
-
-    // リセットしたらスイッチの状態確認して初期化を実行するようにしたいかも
+    // Set click event for all reset buttons
     $('button.reset-button').on('click', function() {
         var moduleId = $(this).data('module.id');
-        if (confirm("module" + moduleId + 'を再起動しますか？')) {
+        if (confirm("Do you want to restart Module" + moduleId + "?")) {
             $.getJSON('/_send_cmd', { moduleId: moduleId, cmdType: "reset" }, function(data) {
                 fetchLogDataAndFillTable();
                 if (!data.isSuccess) {
-                    alert("Error: Fail to reset Module"+moduleId);
+                    alert("Error: Failed to reset Module " + moduleId);
                 }
             });
         }
     });
-    
-});
 
-// フォーム関係
-$(document).ready(function() {
+    // Set click event for all apply buttons
     $('button.apply-button').on('click', function() {
         const moduleId = $(this).data('module.id');
         const hvType = $(this).data('hv.type');
-
         const hvForm = $('#module' + moduleId + hvType + 'HVForm');
         const hvValue = hvForm.val();
 
@@ -117,17 +97,17 @@ $(document).ready(function() {
             return;
         }
 
-        if (confirm("Set HV of Module" + moduleId + ' to ' + hvValue + "?")) {
+        if (confirm("Set HV of Module " + moduleId + ' to ' + hvValue + "?")) {
             $.getJSON('/_change_hv', { moduleId: moduleId, hvValue: hvValue, hvType: hvType }, function(data) {
                 fetchLogDataAndFillTable();
                 const statusCode = data.statusCode;
-                
+
                 switch (statusCode) {
                     case 0:
-                        if (hvType == "Norm") { // 通常の電圧設定すると自動で温度補正がoffになる
-                            $("#module"+ moduleId +"TempCorrSwitch").removeClass('on').addClass('off').text('Temp OFF');
+                        if (hvType == "Norm") {
+                            $("#module" + moduleId + "TempCorrSwitch").removeClass('on').addClass('off').text('Temp OFF');
                         } else if (hvType == "Temp") {
-                            $("#module"+moduleId+"V0").text(hvValue);
+                            $("#module" + moduleId + "V0").text(hvValue);
                         }
                         break;
                     case 1:
