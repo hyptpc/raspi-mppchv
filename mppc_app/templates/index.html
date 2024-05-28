@@ -53,27 +53,27 @@
                     <tbody>
                       <tr>
                         <td>V<sub>0</sub> [V]</td>
-                        <td id="module{{module_id}}V0">{{ param_data.v0 }}</td>
+                        <td id="module{{module_id}}V0">{{ param_data["module{}".format(module_id)].v0 }}</td>
                       </tr>
                       <tr>
                         <td>T<sub>0</sub> [℃]</td>
-                        <td>{{ param_data.t0 }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].t0 }}</td>
                       </tr>
                       <tr>
                         <td>ΔT<sub>High</sub> [mV/℃]</td>
-                        <td>{{ param_data.delta_t_h }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_h }}</td>
                       </tr>
                       <tr>
                         <td>ΔT'<sub>High</sub> [mV/℃<sup>2</sup>]</td>
-                        <td>{{ param_data.delta_t_h_prime }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_h_prime }}</td>
                       </tr>
                       <tr>
                         <td>ΔT<sub>Low</sub> [mV/℃]</td>
-                        <td>{{ param_data.delta_t_l }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_l }}</td>
                       </tr>
                       <tr>
                         <td>ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>]</td>
-                        <td>{{ param_data.delta_t_l_prime }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_l_prime }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -135,27 +135,27 @@
                     <tbody>
                       <tr>
                         <td>V<sub>0</sub> [V]</td>
-                        <td id="module{{module_id}}V0">{{ param_data.v0 }}</td>
+                        <td id="module{{module_id}}V0">{{ param_data["module{}".format(module_id)].v0 }}</td>
                       </tr>
                       <tr>
                         <td>T<sub>0</sub> [℃]</td>
-                        <td>{{ param_data.t0 }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].t0 }}</td>
                       </tr>
                       <tr>
                         <td>ΔT<sub>High</sub> [mV/℃]</td>
-                        <td>{{ param_data.delta_t_h }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_h }}</td>
                       </tr>
                       <tr>
                         <td>ΔT'<sub>High</sub> [mV/℃<sup>2</sup>]</td>
-                        <td>{{ param_data.delta_t_h_prime }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_h_prime }}</td>
                       </tr>
                       <tr>
                         <td>ΔT<sub>Low</sub> [mV/℃]</td>
-                        <td>{{ param_data.delta_t_l }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_l }}</td>
                       </tr>
                       <tr>
                         <td>ΔT'<sub>Low</sub> [mV/℃<sup>2</sup>]</td>
-                        <td>{{ param_data.delta_t_l_prime }}</td>
+                        <td>{{ param_data["module{}".format(module_id)].delta_t_l_prime }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -208,6 +208,7 @@
 
     <!-- right region -->
     <div class="right-container">
+      <div id="myTable"></div>
       <div id="trendGraph"></div>
     </div> <!-- right region -->
 

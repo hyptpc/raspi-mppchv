@@ -1,18 +1,48 @@
 DEBUG: true
 
-# HV limit setting [V]
-VMAX_MODULE1: 60
-VMAX_MODULE2: 60
-VMAX_MODULE3: 60
-VMAX_MODULE4: 60
+MODULE1:
+  # HV limit setting [V]
+  VMAX: 60
+  # temp correction parameter
+  V0: 50 # V
+  T0: 20 # deg
+  DELTA_T_HIGH: 0         # mv/deg
+  DELTA_T_HIGH_PRIME: 0   # mv/deg^2
+  DELTA_T_LOW: 0          # mv/deg
+  DELTA_T_LOW_PRIME: 0    # mv/deg^2
 
-# temp correction parameter
-V0: 50 # V
-T0: 20 # deg
-DELTA_T_HIGH: 0         # mv/deg
-DELTA_T_HIGH_PRIME: 0   # mv/deg^2
-DELTA_T_LOW: 0          # mv/deg
-DELTA_T_LOW_PRIME: 0    # mv/deg^2
+MODULE2:
+  # HV limit setting [V]
+  VMAX: 60
+  # temp correction parameter
+  V0: 51 # V
+  T0: 20 # deg
+  DELTA_T_HIGH: 0         # mv/deg
+  DELTA_T_HIGH_PRIME: 0   # mv/deg^2
+  DELTA_T_LOW: 0          # mv/deg
+  DELTA_T_LOW_PRIME: 0    # mv/deg^2
+
+MODULE3:
+  # HV limit setting [V]
+  VMAX: 60
+  # temp correction parameter
+  V0: 52 # V
+  T0: 20 # deg
+  DELTA_T_HIGH: 0         # mv/deg
+  DELTA_T_HIGH_PRIME: 0   # mv/deg^2
+  DELTA_T_LOW: 0          # mv/deg
+  DELTA_T_LOW_PRIME: 0    # mv/deg^2
+
+MODULE4:
+  # HV limit setting [V]
+  VMAX: 60
+  # temp correction parameter
+  V0: 53 # V
+  T0: 20 # deg
+  DELTA_T_HIGH: 0         # mv/deg
+  DELTA_T_HIGH_PRIME: 0   # mv/deg^2
+  DELTA_T_LOW: 0          # mv/deg
+  DELTA_T_LOW_PRIME: 0    # mv/deg^2
 
 # interval time setting [sec]
 PLOT_INTERVAL: 5

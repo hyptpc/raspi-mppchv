@@ -116,14 +116,22 @@ def change_hv():
     hv_value = request.args.get('hvValue', type=float)
     hv_type = request.args.get('hvType', type=str)
 
-    if hv_value < 0 or app.config["VMAX_MODULE{}".format(module_id)] < hv_value:
+    if hv_value < 0 or app.config[f"MODULE{module_id}"]["VMAX"] < hv_value:
         return jsonify({'statusCode': 2})  # out of range
     is_success = False
     if hv_type == "Norm":
         is_success = set_hv(module_id, hv_value)
     elif hv_type == "Temp":
-        app.config["V0"] = hv_value
-        is_success = set_temp_corr(module_id, hv_value, app.config["T0"], app.config["DELTA_T_HIGH"], app.config["DELTA_T_HIGH_PRIME"], app.config["DELTA_T_LOW"], app.config["DELTA_T_LOW_PRIME"])
+        app.config[f"MODULE{module_id}"]["V0"] = hv_value
+        is_success = set_temp_corr(
+            module_id,
+            hv_value,
+            app.config[f"MODULE{module_id}"]["T0"],
+            app.config[f"MODULE{module_id}"]["DELTA_T_HIGH"],
+            app.config[f"MODULE{module_id}"]["DELTA_T_HIGH_PRIME"],
+            app.config[f"MODULE{module_id}"]["DELTA_T_LOW"],
+            app.config[f"MODULE{module_id}"]["DELTA_T_LOW_PRIME"]
+        )
     return jsonify({'statusCode': 0 if is_success else 1})
 
 # check module status

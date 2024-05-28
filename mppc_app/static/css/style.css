@@ -122,7 +122,7 @@ table tbody tr:hover {
     overflow-y: scroll;
     border: 1px solid var(--border-color);
     border-right: none;
-    height: 300pt;
+    height: 240pt;
 }
 
 #log-table thead {
