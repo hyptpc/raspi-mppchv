@@ -25,7 +25,7 @@
 
           {% for module_id in [1, 3] %}
           <div><fieldset>
-            <legend>Module{{ module_id }}</legend>
+            <legend class="module{{module_id}}-legend">Module{{ module_id }}</legend>
             <!-- Manage HV -->
             <div class="switch off" id="module{{module_id}}HVSwitch" data-switch.type="HV" data-module.id="{{module_id}}"></div>
             <div>
@@ -107,7 +107,7 @@
 
           {% for module_id in [2, 4] %}
           <div><fieldset>
-            <legend>Module{{ module_id }}</legend>
+            <legend class="module{{module_id}}-legend">Module{{ module_id }}</legend>
             <!-- Manage HV -->
             <div class="switch off" id="module{{module_id}}HVSwitch" data-switch.type="HV" data-module.id="{{module_id}}"></div>
             <div>

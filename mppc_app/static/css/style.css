@@ -18,9 +18,9 @@
 /* Fieldset Legend */
 legend {
     padding: 1%;
+    font-size: 16pt;
     font-weight: bold;
 }
-
 
 /* Input Fields */
 input {

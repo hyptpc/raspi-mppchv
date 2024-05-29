@@ -30,8 +30,8 @@ function fetchMppcDataAndPlot() {
 
         modules.forEach((module, i) => {
             traces.push(createTrace(data.x, data.y[i * 3],     `x${i + 1}`, `y${i + 1}`, colors[0], `${i + 1}`, labels[0]));
-            traces.push(createTrace(data.x, data.y[i * 3 + 2], `x${i + 1}`, `y${i + 1}`, colors[1], `${i + 1}`, labels[1]));
-            traces.push(createTrace(data.x, data.y[i * 3 + 1], `x${i + 1}`, `y${i + 1}`, colors[2], `${i + 1}`, labels[2]));
+            traces.push(createTrace(data.x, data.y[i * 3 + 1], `x${i + 1}`, `y${i + 1}`, colors[1], `${i + 1}`, labels[1]));
+            traces.push(createTrace(data.x, data.y[i * 3 + 2], `x${i + 1}`, `y${i + 1}`, colors[2], `${i + 1}`, labels[2]));
         });
 
         // Layout configuration
@@ -43,11 +43,11 @@ function fetchMppcDataAndPlot() {
             annotations: modules.map((module, i) => ({
                 showarrow: false,
                 font: { size: 18 },
-                bordercolor: ['#ffad5c', '#a6c9e2', '#1e661e', '#a61c1c'][i],
+                bordercolor: "black",
                 borderwidth: 2,
                 xref: `x${i + 1} domain`,
                 yref: `y${i + 1} domain`,
-                x: 0.,
+                x: 0.01,
                 y: 0.95,
                 xanchor: "left",
                 yanchor: "bottom",
@@ -78,8 +78,8 @@ function fetchMppcDataAndPlot() {
                 values: [
                     modules,
                     modules.map((_, i) => formattedValue(data.y[i * 3].slice(-1)[0])),
-                    modules.map((_, i) => formattedValue(data.y[i * 3 + 2].slice(-1)[0])),
-                    modules.map((_, i) => formattedValue(data.y[i * 3 + 1].slice(-1)[0]))
+                    modules.map((_, i) => formattedValue(data.y[i * 3 + 1].slice(-1)[0])),
+                    modules.map((_, i) => formattedValue(data.y[i * 3 + 2].slice(-1)[0]))
                 ],
                 align: "center",
                 line: { width: 0 },

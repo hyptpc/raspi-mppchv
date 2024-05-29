@@ -23,10 +23,10 @@ def save_mppc_data():
             temp.append(monitor_values[2])
         # Create MPPC_data object and commit to the database
         data = MPPC_data(
-            hv1=hv[0], curr1=curr[0], temp1=temp[0],
-            hv2=hv[1], curr2=curr[1], temp2=temp[1],
-            hv3=hv[2], curr3=curr[2], temp3=temp[2],
-            hv4=hv[3], curr4=curr[3], temp4=temp[3]
+            hv1=hv[0], temp1=temp[0], curr1=curr[0],
+            hv2=hv[1], temp2=temp[1], curr2=curr[1],
+            hv3=hv[2], temp3=temp[2], curr3=curr[2],
+            hv4=hv[3], temp4=temp[3], curr4=curr[3],
         )
         db.session.add(data)
         db.session.commit()
@@ -53,10 +53,10 @@ def fetch_mppc_data():
     curr_plot_factor = 10
     y = np.array([
         [
-            data.hv1, data.curr1 * curr_plot_factor, data.temp1,
-            data.hv2, data.curr2 * curr_plot_factor, data.temp2,
-            data.hv3, data.curr3 * curr_plot_factor, data.temp3,
-            data.hv4, data.curr4 * curr_plot_factor, data.temp4,
+            data.hv1, data.temp1, data.curr1 * curr_plot_factor,
+            data.hv2, data.temp2, data.curr2 * curr_plot_factor, 
+            data.hv3, data.temp3, data.curr3 * curr_plot_factor,
+            data.hv4, data.temp4, data.curr4 * curr_plot_factor
         ] for data in latest_data
     ]).T.tolist()
     return jsonify({"x": x, "y": y})
