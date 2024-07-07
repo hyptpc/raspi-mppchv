@@ -12,7 +12,6 @@ parser.add_argument("conf_file_path", type=str, help="Input conf file path")
 args = parser.parse_args()
 # ---------------------------------------------------------------------------
 
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import yaml
