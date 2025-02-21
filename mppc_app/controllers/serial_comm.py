@@ -98,9 +98,6 @@ def monitor(module_id, verbose = True):
     current = hex2curr(received_cmd.decode()[16:20])
     temp = hex2temp(received_cmd.decode()[20:24])
 
-    print(id_list[module_id]-1, hv, current, temp, received_cmd)
-
-
     return [hv, current, temp]
     # return [0, 0, 0]
 
