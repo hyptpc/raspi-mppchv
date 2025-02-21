@@ -65,7 +65,7 @@ def monitor(module_id, verbose = True):
         print("HPO")
 
     # open port
-    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id-1]), baudrate=38400, parity='E', timeout=1)
+    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id]-1), baudrate=38400, parity='E', timeout=1)
 
     if ser.isOpen():
         # print("port opened successfully")
@@ -97,7 +97,10 @@ def monitor(module_id, verbose = True):
     hv = hex2vol(received_cmd.decode()[12:16])
     current = hex2curr(received_cmd.decode()[16:20])
     temp = hex2temp(received_cmd.decode()[20:24])
-    
+
+    print(id_list[module_id]-1, hv, current, temp, received_cmd)
+
+
     return [hv, current, temp]
     # return [0, 0, 0]
 
@@ -128,7 +131,7 @@ def set_hv(module_id, hv):
     print("HBV")
 
     # open port
-    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id-1]), baudrate=38400, parity='E', timeout=1)
+    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id]-1), baudrate=38400, parity='E', timeout=1)
 
     if ser.isOpen():
         is_success = True
