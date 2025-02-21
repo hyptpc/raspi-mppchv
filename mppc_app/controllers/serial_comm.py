@@ -22,6 +22,7 @@ conv_factor_curr = 4.980*10**-3
 id_list = [5, 2, 4, 0]
 
 def hex2vol(hex_value):
+    print(hex_value)
     return int(hex_value, 16)*conv_factor_volt
 
 def hex2curr(hex_value):
