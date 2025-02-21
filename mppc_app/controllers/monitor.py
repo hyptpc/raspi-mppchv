@@ -32,6 +32,7 @@ def vol2hex(vol_value):
     # return hex( int(vol_value/conv_factor_Vb) )
     return format( int(vol_value/conv_factor_Vb), "04x" ).encode()
     
+
 # open port
 ser = serial.Serial('/dev/ttyAMA{}'.format(args.uart_ch), baudrate=38400, parity='E', timeout=1)
 
