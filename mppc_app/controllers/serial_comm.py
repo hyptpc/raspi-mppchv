@@ -22,7 +22,6 @@ conv_factor_curr = 4.980*10**-3
 id_list = [5, 2, 4, 0]
 
 def hex2vol(hex_value):
-    print(hex_value)
     return int(hex_value, 16)*conv_factor_volt
 
 def hex2curr(hex_value):
@@ -68,10 +67,7 @@ def monitor(module_id, verbose = True):
     # open port
     ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id]), baudrate=38400, parity='E', timeout=1)
 
-    if ser.isOpen():
-        # print("port opened successfully")
-        pass
-    else:
+    if ~ser.isOpen():
         print("Port open failed")
         return
 
@@ -100,7 +96,6 @@ def monitor(module_id, verbose = True):
     temp = hex2temp(received_cmd.decode()[20:24])
 
     return [hv, current, temp]
-    # return [0, 0, 0]
 
 
 @flag_manager
@@ -154,6 +149,15 @@ def set_hv(module_id, hv):
     time.sleep(0.1)
     received_cmd = ser.readline()
 
+    cal_checksum = str( hex(sum(received_cmd[:-3])).upper() )[-2:]
+    received_checksum = received_cmd[-3:-1].decode()
+    print("checksum(cal/rec): {}, {}".format(cal_checksum, received_checksum))
+    if cal_checksum != received_checksum:
+        is_success = False
+        print("wrong checksum")
+    else:
+        print(f"succeeded changing HV @ modele {id_list[module_id-1]}")
+
     save_log(module_id=module_id, cmd_tx="HBV{}".format(hv), cmd_rx="hbv", status=is_success)
     return is_success
 
@@ -169,33 +173,65 @@ def set_temp_corr(module_id, v0, t0, delta_t_h, delta_t_h_prime, delta_t_l, delt
     save_log(module_id=module_id, cmd_tx="HRT", cmd_rx="hrt", status=is_success)
     return is_success
 
+def comm(module_id, cmd):
+    # open port
+    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id-1]), baudrate=38400, parity='E', timeout=1)
+
+    if ser.isOpen():
+        is_success = True
+    else:
+        is_success = False
+        print("Port open failed")
+        return is_success
+
+    # create command
+    stx       = b"\x02"
+    command   = cmd.encode()
+    etx       = b"\x03"
+    check_sum = str( hex(sum(command)+5) )[-2:].encode()
+    delimiter = b"\x0D"
+
+    send_cmd = stx + command + etx + check_sum + delimiter
+    print("send command:     ", send_cmd)
+
+    # send command
+    ser.write(send_cmd)
+    ser.flush()
+
+    # receive command and interpret it
+    time.sleep(0.1)
+    received_cmd = ser.readline()
+
+    cal_checksum = str( hex(sum(received_cmd[:-3])).upper() )[-2:]
+    received_checksum = received_cmd[-3:-1].decode()
+    print("checksum(cal/rec): {}, {}".format(cal_checksum, received_checksum))
+    if cal_checksum != received_checksum:
+        is_success = False
+        print("wrong checksum")
+    else:
+        print(f"succeeded {cmd} @ modele {id_list[module_id-1]}")
+
+    return is_success
+
+
 @flag_manager
 def turn_on(module_id):
     print("HON")
-    rng = np.random.default_rng()
-    is_success = False
-    if rng.random() > 0.5:
-        is_success = True
+    is_success = comm(module_id, "HON")
     save_log(module_id=module_id, cmd_tx="HON", cmd_rx="hon", status=is_success)
     return is_success
 
 @flag_manager
 def turn_off(module_id):
     print("HOF")
-    rng = np.random.default_rng()
-    is_success = False
-    if rng.random() > 0.5:
-        is_success = True
+    is_success = comm(module_id, "HOF")
     save_log(module_id=module_id, cmd_tx="HOF", cmd_rx="hof", status=is_success)
     return is_success
 
 @flag_manager
 def reset(module_id):
     print("HRE")
-    rng = np.random.default_rng()
-    is_success = False
-    if rng.random() > 0.5:
-        is_success = True
+    is_success = comm(module_id, "HRE")
     save_log(module_id=module_id, cmd_tx="HRE", cmd_rx="hre", status=is_success)
     return is_success
 
