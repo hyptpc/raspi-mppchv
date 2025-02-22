@@ -67,7 +67,7 @@ def monitor(module_id, verbose = True):
     # open port
     ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id]), baudrate=38400, parity='E', timeout=1)
 
-    if ~ser.isOpen():
+    if not ser.isOpen():
         print("Port open failed")
         return
 
@@ -238,13 +238,44 @@ def reset(module_id):
 @flag_manager
 def get_status(module_id):
     print("HGS")
-    cmd_rx = "44"
-    status = dict(
-        hv_output = 1,
-        over_curr_prot = 0,
-        over_curr = 0,
-        with_temp_sens = 0,
-        over_temp = 0,
-        temp_corr = 0
+
+    # open port
+    ser = serial.Serial('/dev/ttyAMA{}'.format(id_list[module_id-1]), baudrate=38400, parity='E', timeout=1)
+
+    if not ser.isOpen():
+        print("Port open failed")
+        return
+
+    # create command
+    stx       = b"\x02"
+    command   = "HGS".encode()
+    etx       = b"\x03"
+    check_sum = str( hex(sum(command)+5) )[-2:].encode()
+    delimiter = b"\x0D"
+
+    send_cmd = stx + command + etx + check_sum + delimiter
+
+    # send command
+    ser.write(send_cmd)
+    ser.flush()
+
+    # receive command and interpret it
+    time.sleep(0.1)
+    received_cmd = ser.readline()
+
+    # close port
+    ser.close()
+
+    status = int(received_cmd.decode()[4:8], 16)
+    for i in range(7):
+        print(f"bit{i}: {(status >> i) & 1}")
+
+    status_dict = dict(
+        hv_output = (status >> 0) & 1,
+        over_curr_prot = (status >> 1) & 1,
+        over_curr = (status >> 2) & 1,
+        with_temp_sens = (status >> 3) & 1,
+        over_temp = (status >> 4) & 1,
+        temp_corr = (status >> 6) & 1
     )
-    return status
+    return status_dict
