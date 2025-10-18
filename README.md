@@ -16,6 +16,8 @@ raspi-mppchv/
 │   ├── index.html              # Main Web UI file
 │   ├── style.css               # CSS styles
 │   └── script.js               # JavaScript for UI logic and charts
+|   └── chart.umd.js            # Chart.js library (downloaded)
+|   └── chartjs-adapter-date-fns.bundle.min.js # Date adapter for Chart.js (downloaded)
 ├── modules/
 │   ├── __init__.py             # Makes 'modules' a Python package
 │   ├── serial_com.py           # Handles serial communication logic
