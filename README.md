@@ -6,24 +6,24 @@ This application provides a web-based interface to control and monitor multiple 
 
 ## Directory Structure 📁
 
-mppc_controller/
-+-- main.py               # Main application entry point (FastAPI server)
-+-- config/
-|   +-- config.yaml       # Configuration file
-+-- data/                 # Stores database files (created automatically)
-+-- static/
-|   +-- index.html        # Main Web UI file
-|   +-- style.css         # CSS styles
-|   +-- script.js         # JavaScript for UI logic and charts
-+-- modules/
-|   +-- __init__.py       # Makes 'modules' a Python package
-|   +-- serial_com.py     # Handles serial communication logic
-|   +-- db_measurements.py# Database logic for monitoring data
-|   +-- db_logs.py        # Database logic for action logs
-|   +-- logger.py         # Logging setup
-+-- requirements.txt      # Python dependencies
-+-- README.md             # This file
-+-- LICENSE               # License file (e.g., MIT)
+```
+raspi-mppchv/
+├── main.py                     # Main application entry point (FastAPI server)
+├── config/
+│   └── config.yaml             # Configuration file
+├── data/                       # Stores database files (created automatically)
+├── static/
+│   ├── index.html              # Main Web UI file
+│   ├── style.css               # CSS styles
+│   └── script.js               # JavaScript for UI logic and charts
+├── modules/
+│   ├── __init__.py             # Makes 'modules' a Python package
+│   ├── serial_com.py           # Handles serial communication logic
+│   ├── db_measurements.py      # Database logic for monitoring data
+│   ├── db_logs.py              # Database logic for action logs
+│   └── logger.py               # Logging setup
+└── requirements.txt            # Python dependencies
+```
 
 ## Setup & Installation ⚙️
 
