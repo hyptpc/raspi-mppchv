@@ -4,23 +4,6 @@
 
 This application provides a web-based interface to control and monitor multiple Hamamatsu C11204-01 MPPC High Voltage Power Supply modules connected via serial ports (UART) to a Raspberry Pi or similar Linux system. It allows users to set voltages, turn outputs on/off, monitor voltage/current/temperature, and log both monitoring data and user actions.
 
-## Features ✨
-
-* **Web User Interface:** Control and monitor modules via a web browser on the local network.
-* **Sequential Command Execution:** Uses a queue system to ensure serial commands are sent one at a time, preventing interference between ports or commands.
-* **Multi-Port Control:** Manage up to 4 (or more, configurable) modules connected to different serial ports.
-* **Structured Commands:** Easy-to-use commands for common actions (`MONITOR`, `SET_VOLTAGE`, `RAMP_VOLTAGE`, `TURN_ON`, `TURN_OFF`, `RESET`).
-* **Raw Command Interface:** Send any device-specific command string directly.
-* **Live Monitoring:**
-    * Real-time status display for each port.
-    * Live charts for Voltage, Current, and Temperature for each port.
-    * Configurable monitoring interval.
-* **Data Logging:**
-    * Saves monitoring data (Voltage, Current, Temp, Status) to `data/measurements.db`.
-    * Saves user-initiated actions to `data/action_log.db`.
-* **Configuration File:** Easily configure serial ports, monitoring interval, server host/port, and test mode via `config/config.yaml`.
-* **Test Mode:** Includes a test mode (`IS_TEST_MODE` in `serial_com.py` or via `config.yaml`) for development without actual hardware.
-
 ## Directory Structure 📁
 
 mppc_controller/
