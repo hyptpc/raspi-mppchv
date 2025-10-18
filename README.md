@@ -50,11 +50,6 @@ raspi-mppchv/
         * Adjust `monitoring_interval` if needed.
         * Set `test_mode.enabled` to `false` for use with real hardware.
         * Change `server.host` and `server.port` if necessary.
-    * **Permissions (Linux):** Ensure the user running the script has permission to access the serial ports. Add the user to the `dialout` group:
-        ```bash
-        sudo usermod -a -G dialout $USER 
-        # Log out and log back in, or reboot for the change to take effect.
-        ```
 
 5.  **Initialize Databases:**
     Run these commands once to create the database files in the `data/` directory:
@@ -70,12 +65,30 @@ raspi-mppchv/
     ```bash
     python main.py --config config/config.yaml
     ```
-    (You can omit `--config config/config.yaml` if the file is in the default location).
+    (You can omit `--config config/config.yaml` if the file is in the default location). The server will log the host and port it's running on (e.g., `0.0.0.0:8000`).
 
 2.  **Access the Web UI:**
-    Open a web browser on a device connected to the **same local network** as the server and navigate to:
-    `http://<server-ip-address>:<port>`
-    (e.g., `http://192.168.20.5:8000`, using the host and port defined in `config.yaml`).
+
+    * **From the Same Local Network:**
+        Open a web browser on a device connected to the **same local network** as the server and navigate to:
+        `http://<server-ip-address>:<port>`
+        (e.g., `http://192.168.20.5:8000`, using the host and port defined in `config.yaml` or logged by the server).
+
+    * **From an External Network (using SSH Tunnel):**
+        If your access device (e.g., your laptop) is *not* on the same network as the server, but you can SSH into the server:
+        1.  Keep the server running on the server machine.
+        2.  Open a **new terminal on your local machine** (e.g., your laptop) and establish an SSH tunnel with the following command:
+            ```bash
+            ssh -L <local_port>:localhost:<server_port> <username>@<server_ip_address>
+            ```
+            * Replace `<local_port>` with an unused port on your local machine (e.g., `8080`).
+            * Replace `<server_port>` with the port the server is running on (usually `8000`).
+            * Replace `<username>@<server_ip_address>` with your SSH login details for the server (e.g., `pi@192.168.20.5`).
+            * **Example:** `ssh -L 8080:localhost:8000 pi@192.168.20.5`
+        3.  Keep this SSH terminal window open.
+        4.  Open a web browser on your **local machine** and navigate to:
+            `http://localhost:<local_port>`
+            (e.g., `http://localhost:8080`)
 
 3.  **Use the Interface:**
     * Use the "Structured Commands" panel for common actions.
@@ -85,6 +98,7 @@ raspi-mppchv/
     * Use the "Graph Display" toggles to show/hide specific data series.
     * Access historical monitoring data via the "View Raw Data Log" link.
     * Access command history via the "View Action Log" link.
+
 
 ## Dependencies 📦
 
@@ -98,5 +112,3 @@ raspi-mppchv/
 ## License 📜
 
 This project is licensed under the **MIT License**. See the `LICENSE` file for details.
-
-*(Note: Please confirm you are using the MIT License and add the corresponding `LICENSE` file to the repository root)*
