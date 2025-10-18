@@ -1,6 +1,0 @@
-# Python Bytecode and Cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-data/
