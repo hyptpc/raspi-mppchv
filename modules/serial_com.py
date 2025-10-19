@@ -376,7 +376,7 @@ def worker(q: Queue):
                     log("WARN", f"Could not get current voltage for {port_id}. Assuming {start_voltage}V.")
 
                 # 2. Ramp down to 20V
-                target_voltage = 20.0
+                target_voltage = 20.5 # min HV value 20 V, then a bit higher vol is set
                 if start_voltage > target_voltage:
                     num_steps = 10 # Use default 10 steps
                     delay_s = 0.5  # Use a faster 0.5s delay for ramp down
