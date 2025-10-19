@@ -31,7 +31,7 @@ raspi-mppchv/
 
 1.  **Clone the Repository:**
     ```bash
-    git clone <your-repository-url>
+    git clone raspi-mppchv
     cd raspi-mppchv
     ```
 
