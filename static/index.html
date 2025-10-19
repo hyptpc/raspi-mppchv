@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPPC HV Controller</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/chart.umd.js"></script> 
+    <script src="/static/chart.umd.js"></script>
     <script src="/static/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
@@ -13,7 +13,7 @@
         <div id="control-panel" class="panel">
             <div>
                 <h3>Structured Commands</h3>
-                <div class="form-group"><label for="port_id">Port ID</label><select id="port_id"><option value="0">P0</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></div>
+                <div class="form-group"><label for="port_id">Port</label><select id="port_id"><option>Loading...</option></select></div>
                 <div class="form-group">
                     <label for="command_type">Command</label>
                     <select id="command_type" onchange="toggleValueInput()"><option value="MONITOR">MONITOR</option><option value="SET_VOLTAGE">SET_VOLTAGE (Instant)</option><option value="RAMP_VOLTAGE">RAMP_VOLTAGE (Gradual)</option><option value="TURN_ON">TURN_ON</option><option value="TURN_OFF">TURN_OFF</option><option value="RESET">RESET</option></select>
@@ -29,7 +29,7 @@
                 <button onclick="sendStructuredCommand()">Send</button>
                 <hr style="margin: 15px 0;">
                 <h3>Raw Command</h3>
-                <div class="form-group"><label for="raw_command_port_id">Port ID</label><select id="raw_command_port_id"><option value="0">P0</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></div>
+                <div class="form-group"><label for="raw_command_port_id">Port</label><select id="raw_command_port_id"><option>Loading...</option></select></div>
                 <div class="form-group"><label for="raw_command">Command String</label><input type="text" id="raw_command" placeholder="e.g., HPO"></div>
                 <button onclick="sendRawCommand()">Send Raw</button>
             </div>
@@ -38,12 +38,7 @@
                 <h3>Graph Display</h3>
                 <table class="graph-toggle-table">
                     <thead><tr><th>Port</th><th>Volt</th><th>Curr</th><th>Temp</th></tr></thead>
-                    <tbody>
-                        <tr><td>P0</td><td><input type="checkbox" onchange="handleGraphToggle(0, 'voltage', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(0, 'current', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(0, 'temperature', this)" checked></td></tr>
-                        <tr><td>P1</td><td><input type="checkbox" onchange="handleGraphToggle(1, 'voltage', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(1, 'current', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(1, 'temperature', this)" checked></td></tr>
-                        <tr><td>P2</td><td><input type="checkbox" onchange="handleGraphToggle(2, 'voltage', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(2, 'current', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(2, 'temperature', this)" checked></td></tr>
-                        <tr><td>P3</td><td><input type="checkbox" onchange="handleGraphToggle(3, 'voltage', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(3, 'current', this)" checked></td><td><input type="checkbox" onchange="handleGraphToggle(3, 'temperature', this)" checked></td></tr>
-                    </tbody>
+                    <tbody><tr><td colspan="4">Loading...</td></tr></tbody>
                 </table>
                 <div class="links-container" style="display: flex; justify-content: space-around; margin-top: 10px;">
                     <a href="/raw_data" target="_blank">View Raw Data Log</a>
@@ -51,12 +46,14 @@
                 </div>
             </div>
         </div>
+
         <div id="status-grid">
-            <div class="panel" id="status-panel-0"><h2>Port 0</h2><p>Waiting...</p></div>
-            <div class="panel" id="status-panel-1"><h2>Port 1</h2><p>Waiting...</p></div>
-            <div class="panel" id="status-panel-2"><h2>Port 2</h2><p>Waiting...</p></div>
-            <div class="panel" id="status-panel-3"><h2>Port 3</h2><p>Waiting...</p></div>
+            <div class="panel" id="status-panel-0"><h2>Port 0</h2><p>Loading...</p></div>
+            <div class="panel" id="status-panel-1"><h2>Port 1</h2><p>Loading...</p></div>
+            <div class="panel" id="status-panel-2"><h2>Port 2</h2><p>Loading...</p></div>
+            <div class="panel" id="status-panel-3"><h2>Port 3</h2><p>Loading...</p></div>
         </div>
+
         <div id="charts-container" class="panel">
             <div class="chart-panel"><h3>Voltage ⚡</h3><canvas id="voltageChart"></canvas></div>
             <div class="chart-panel"><h3>Current 💧</h3><canvas id="currentChart"></canvas></div>
@@ -65,5 +62,5 @@
     </div>
 
     <script src="/static/script.js" defer></script>
-    </body>
+</body>
 </html>

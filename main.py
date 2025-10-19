@@ -18,23 +18,27 @@ from modules import serial_com
 from modules.logger import log
 
 config = None
-# NUM_PORTS removed, will be determined dynamically
+port_labels = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manages startup/shutdown and starts background threads."""
-    global config
+    global config, port_labels
     log("INFO", "Application startup...")
     
     worker_thread = threading.Thread(target=serial_com.worker, args=(serial_command_queue,), daemon=True)
     worker_thread.start()
     log("INFO", "Command worker thread started.")
-    
-    monitoring_interval = config.get('general', {}).get('monitoring_interval', 5)
-    
+        
     # Determine number of ports from the initialized DEVICE_PORTS
     num_configured_ports = len(serial_com.DEVICE_PORTS)
-    
+
+    raw_labels = config.get('port_labels', {})
+    for port_id in serial_com.DEVICE_PORTS.keys():
+         port_labels[port_id] = raw_labels.get(port_id, f"Port {port_id}")
+    log("INFO", f"Loaded port labels: {port_labels}")
+
+    monitoring_interval = config.get('general', {}).get('monitoring_interval', 5)
     monitoring_thread = threading.Thread(
         target=serial_com.monitoring_loop,
         # Pass the queue, interval, and the dynamically determined port list/keys
@@ -89,6 +93,12 @@ async def get_action_log_page():
     except FileNotFoundError:
         log("ERROR", "static/logs.html not found.")
         return HTMLResponse(content="<h1>Error: logs.html not found</h1>", status_code=404)
+
+@app.get("/api/port-labels", tags=["Configuration"])
+async def get_port_labels():
+    """Returns the configured mapping of port IDs to display names."""
+    global port_labels
+    return port_labels
 
 @app.get("/api/logs", tags=["Data Retrieval"])
 async def get_all_action_logs():
