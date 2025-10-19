@@ -152,6 +152,26 @@ if __name__ == "__main__":
     except Exception as e:
         log("ERROR", f"Failed to read/parse config file {args.config}: {e}"); exit(1)
 
+
+    # Initialize Database Connections based on Config
+    db_config = config.get('databases', {})
+    # Get the single directory path, default to "data"
+    db_directory = db_config.get('db_directory', 'data')
+    # Get the suffix, default to an empty string (no suffix)
+    db_suffix = db_config.get('db_suffix', '')
+    try:
+        # Initialize measurements.db using the directory and suffix
+        database.init_database_connection(db_directory, suffix=db_suffix)
+        log("INFO", f"Measurements DB connection initialized: {db_directory}/measurements{'_' if db_suffix else ''}{db_suffix}.db")
+        database.init_db() # Create tables if they don't exist
+        
+        # Initialize action_log.db using the *same* directory and suffix
+        log_database.init_database_connection(db_directory, suffix=db_suffix)
+        log("INFO", f"Action Log DB connection initialized: {db_directory}/action_log{'_' if db_suffix else ''}{db_suffix}.db")
+        log_database.init_db() # Create tables if they don't exist
+    except Exception as e:
+        log("ERROR", f"Failed to initialize databases in '{db_directory}': {e}"); exit(1)
+    
     # Apply global settings from config
     is_test_mode = config.get('test_mode', {}).get('enabled', True)
     serial_com.IS_TEST_MODE = is_test_mode # Set mode in serial_com module

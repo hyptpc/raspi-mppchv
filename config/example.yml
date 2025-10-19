@@ -21,6 +21,10 @@ port_labels:
   2: "KVC-1"
   3: "KVC-2"
 
+databases:
+  db_directory: "data"
+  db_suffix: ""
+
 # Test mode setting
 test_mode:
   # Set to true to run in test mode (simulated hardware)
