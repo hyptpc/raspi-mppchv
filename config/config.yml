@@ -2,6 +2,9 @@
 general:
   # Monitoring interval in seconds
   monitoring_interval: 10
+  # The time range (in minutes) to display on the browser graph.
+  display_time_window_minutes: 5
+  
 
 # Server settings
 server:

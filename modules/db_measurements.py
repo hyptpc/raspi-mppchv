@@ -110,6 +110,27 @@ def get_data_from_db(skip: int = 0, limit: int = 100):
     finally:
         db.close()
 
+def get_data_from_db_since(start_time: datetime):
+    """
+    Fetches all Measurement records from the database where the timestamp
+    is on or after the specified start_time.
+    """
+    if not SessionLocal:
+        print("ERROR: get_data_from_db_since called before database connection was initialized.")
+        return []
+        
+    db = SessionLocal()
+    try:
+        # Filter by time and sort ASC (oldest first)
+        # This is critical for data.findLast() in JavaScript to work correctly.
+        results = db.query(Measurement)\
+                    .filter(Measurement.timestamp >= start_time)\
+                    .order_by(Measurement.timestamp.asc())\
+                    .all()
+        return results
+    finally:
+        db.close()
+
 if __name__ == '__main__':
     # This script is not meant to be run directly. Run main.py instead.
     print("Initializing measurements database manually...")
