@@ -11,13 +11,38 @@ from contextlib import asynccontextmanager
 import argparse
 import yaml
 import os
+import sys
+from datetime import datetime, timedelta
 
 from modules import db_measurements as database
 from modules import db_logs as log_database
 from modules import serial_com
 from modules.logger import log
 
-config = None
+# --- 1. Pre-load config for API routes ---
+# This is necessary because API routes are defined at the global scope,
+# before the main config is loaded in __name__ == "__main__".
+# We find the config path just for these routes.
+_config_path = "config/config.yaml" # Default path
+if "--config" in sys.argv:
+    try:
+        _config_path = sys.argv[sys.argv.index("--config") + 1]
+    except IndexError:
+        pass # Use default if arg is present but value is missing
+
+try:
+    with open(_config_path, 'r') as f:
+        _api_config = yaml.safe_load(f)
+except Exception:
+     _api_config = {} # Use defaults if it fails
+     
+_general_config = _api_config.get('general', {})
+DISPLAY_WINDOW_MINUTES = _general_config.get('display_time_window_minutes', 5)
+SERVER_FETCH_MINUTES = DISPLAY_WINDOW_MINUTES + 5
+# --- End of Pre-load ---
+
+
+config = None # This global config will be loaded by __main__ for lifespan
 port_labels = {}
 
 @asynccontextmanager
@@ -33,6 +58,7 @@ async def lifespan(app: FastAPI):
     # Determine number of ports from the initialized DEVICE_PORTS
     num_configured_ports = len(serial_com.DEVICE_PORTS)
 
+    # lifespan uses the 'config' loaded by __main__
     raw_labels = config.get('port_labels', {})
     for port_id in serial_com.DEVICE_PORTS.keys():
          port_labels[port_id] = raw_labels.get(port_id, f"Port {port_id}")
@@ -55,7 +81,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MPPC HV Controller API",
     description="Control and monitor HV modules.",
-    version="2.5.0", # Version up for dynamic ports
+    version="2.5.0",
     lifespan=lifespan
 )
 # Mount the static directory to serve CSS, JS, etc.
@@ -105,6 +131,17 @@ async def get_all_action_logs():
     """API endpoint to fetch action log data as JSON."""
     return log_database.get_action_logs()
 
+@app.get("/api/display-window-minutes", tags=["Configuration"])
+async def get_display_window():
+    """
+    Provides the configured display time window (in minutes) to the frontend.
+    This value is read from the config file at startup.
+    """
+    return {
+        # This uses the value from the pre-load at the top of the file
+        "display_time_window_minutes": DISPLAY_WINDOW_MINUTES 
+    }
+
 @app.post("/serial/command", tags=["Serial Control"])
 async def queue_structured_command(cmd: StructuredCommand):
     """Queues a structured command, validating port_id dynamically."""
@@ -136,15 +173,24 @@ async def queue_raw_command(cmd: RawCommand):
 
 @app.get("/data", tags=["Data Retrieval"])
 async def get_data():
-    """API endpoint for monitoring data."""
-    return database.get_data_from_db(limit=200)
+    """
+    API endpoint for monitoring data.
+    Fetches data from the DB based on the configured time window.
+    """
+    # This uses the value from the pre-load at the top of the file
+    start_time = datetime.now() - timedelta(minutes=SERVER_FETCH_MINUTES)
+    
+    # This requires get_data_from_db_since() to be added to db_measurements.py
+    # This new function must return data sorted ASC (oldest-to-newest)
+    return database.get_data_from_db_since(start_time=start_time)
 
 if __name__ == "__main__":
+    # This main block remains structurally the same
     parser = argparse.ArgumentParser(description="MPPC HV Controller Server")
     parser.add_argument("--config", type=str, default="config/config.yaml", help="Path to config file")
     args = parser.parse_args()
 
-    # Read configuration file
+    # Read configuration file and set the global 'config' var for lifespan
     try:
         with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
@@ -152,6 +198,26 @@ if __name__ == "__main__":
     except Exception as e:
         log("ERROR", f"Failed to read/parse config file {args.config}: {e}"); exit(1)
 
+
+    # Initialize Database Connections based on Config
+    db_config = config.get('databases', {})
+    # Get the single directory path, default to "data"
+    db_directory = db_config.get('db_directory', 'data')
+    # Get the suffix, default to an empty string (no suffix)
+    db_suffix = db_config.get('db_suffix', '')
+    try:
+        # Initialize measurements.db using the directory and suffix
+        database.init_database_connection(db_directory, suffix=db_suffix)
+        log("INFO", f"Measurements DB connection initialized: {db_directory}/measurements{'_' if db_suffix else ''}{db_suffix}.db")
+        database.init_db() # Create tables if they don't exist
+        
+        # Initialize action_log.db using the *same* directory and suffix
+        log_database.init_database_connection(db_directory, suffix=db_suffix)
+        log("INFO", f"Action Log DB connection initialized: {db_directory}/action_log{'_' if db_suffix else ''}{db_suffix}.db")
+        log_database.init_db() # Create tables if they don't exist
+    except Exception as e:
+        log("ERROR", f"Failed to initialize databases in '{db_directory}': {e}"); exit(1)
+    
     # Apply global settings from config
     is_test_mode = config.get('test_mode', {}).get('enabled', True)
     serial_com.IS_TEST_MODE = is_test_mode # Set mode in serial_com module

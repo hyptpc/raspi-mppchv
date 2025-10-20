@@ -234,7 +234,7 @@ class DeviceCommunicator:
             return {"error": f"Parse error: {e}", "raw_response": response_bytes.decode(errors='ignore')}
 
 
-def generate_ramp_steps(start_voltage: float, target_voltage: float, num_steps: int) -> list[float]:
+def generate_ramp_up_steps(start_voltage: float, target_voltage: float, num_steps: int) -> list[float]:
     """Generates a list of voltage steps with an ease-out curve (smaller steps near target)."""
     steps = []
     voltage_range = target_voltage - start_voltage
@@ -260,6 +260,28 @@ def generate_ramp_steps(start_voltage: float, target_voltage: float, num_steps: 
     # Remove potential duplicate if the last calculated step was very close
     if len(steps) > 1 and abs(steps[-2] - steps[-1]) < 0.001:
          steps.pop(-2)
+         
+    return steps
+
+def generate_ramp_down_steps(start_voltage: float, target_voltage: float, num_steps: int) -> list[float]:
+    """Generates voltage steps with an ease-in curve (slow start)."""
+    steps = []
+    voltage_range = start_voltage - target_voltage
+    if voltage_range <= 0 or num_steps <= 0:
+        return [target_voltage] # Already at or below target
+        
+    for i in range(1, num_steps + 1):
+        progress = i / num_steps
+        # Use a quadratic ease-in function: x^2
+        # This makes the steps small at the beginning (high voltage)
+        # and larger at the end (low voltage).
+        ease_in_progress = progress ** 2
+        step_voltage = start_voltage - (voltage_range * ease_in_progress)
+        steps.append(round(step_voltage, 3))
+        
+    # Ensure the final step is exactly the target
+    if steps and steps[-1] != target_voltage:
+         steps.append(target_voltage)
          
     return steps
 
@@ -309,7 +331,7 @@ def worker(q: Queue):
                     steps = [target_voltage] # Just set the target directly
                 else:
                     num_steps = command_info.get("ramp_steps", 10)
-                    steps = generate_ramp_steps(start_voltage, target_voltage, num_steps)
+                    steps = generate_ramp_up_steps(start_voltage, target_voltage, num_steps)
                 
                 delay_s = command_info.get("ramp_delay_s", 0.5)
                 log("RAMP", f"Starting ramp on port {port_id}: {steps}")
@@ -337,8 +359,46 @@ def worker(q: Queue):
                 command_str_for_log = "TURN_ON"
                 response = communicator.turn_on()
 
+            # elif cmd_type == "TURN_OFF":
+            #     command_str_for_log = "TURN_OFF"
+            #     response = communicator.turn_off()
             elif cmd_type == "TURN_OFF":
-                command_str_for_log = "TURN_OFF"
+                command_str_for_log = "RAMP_DOWN_AND_OFF"
+                log("RAMP", f"Starting ramp down for port {port_id}...")
+                
+                # 1. Get current voltage
+                current_monitor_data = communicator.monitor()
+                start_voltage = 20.0 # Default start voltage
+                if "voltage" in current_monitor_data and current_monitor_data["voltage"] is not None:
+                    start_voltage = current_monitor_data["voltage"]
+                    log("RAMP", f"Current voltage is {start_voltage}V.")
+                else:
+                    log("WARN", f"Could not get current voltage for {port_id}. Assuming {start_voltage}V.")
+
+                # 2. Ramp down to 20V
+                target_voltage = 20.5 # min HV value 20 V, then a bit higher vol is set
+                if start_voltage > target_voltage:
+                    num_steps = 10 # Use default 10 steps
+                    delay_s = 0.5  # Use a faster 0.5s delay for ramp down
+                    voltage_steps = generate_ramp_down_steps(start_voltage, target_voltage, num_steps)
+                    log("RAMP", f"Ramping down on port {port_id}: {voltage_steps}")
+                    
+                    step_responses = []
+                    for voltage_step in voltage_steps:
+                        log("RAMP", f"Setting port {port_id} to {voltage_step}V")
+                        # set vol
+                        step_res = communicator.set_voltage(voltage_step)
+                        step_responses.append(step_res)
+                        # monitor
+                        monitor_data = communicator.monitor()
+                        database.save_monitor_data(port_id, monitor_data)
+                        time.sleep(delay_s)
+                    log("RAMP", f"Port {port_id} ramp down to 20V complete.")
+                else:
+                    log("RAMP", f"Voltage {start_voltage}V is already at or below 20V. Skipping ramp.")
+
+                # 3. Send final HOF command
+                log("INFO", f"Sending final TURN_OFF (HOF) to port {port_id}.")
                 response = communicator.turn_off()
 
             elif cmd_type == "RESET":
