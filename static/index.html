@@ -9,6 +9,7 @@
     <script src="/static/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
+    <h1>MPPC HV Controller</h1>
     <div class="main-grid">
         <div id="control-panel" class="panel">
             <div>
@@ -16,21 +17,35 @@
                 <div class="form-group"><label for="port_id">Port</label><select id="port_id"><option>Loading...</option></select></div>
                 <div class="form-group">
                     <label for="command_type">Command</label>
-                    <select id="command_type" onchange="toggleValueInput()"><option value="MONITOR">MONITOR</option><option value="SET_VOLTAGE">SET_VOLTAGE (Instant)</option><option value="RAMP_VOLTAGE">RAMP_VOLTAGE (Gradual)</option><option value="TURN_ON">TURN_ON</option><option value="TURN_OFF">TURN_OFF</option><option value="RESET">RESET</option></select>
+                    <select id="command_type" onchange="toggleValueInput()">
+                        <option value="MONITOR">MONITOR</option>
+                        <option value="SET_VOLTAGE">SET_VOLTAGE (Instant)</option>
+                        <option value="RAMP_VOLTAGE">RAMP_VOLTAGE (Gradual)</option>
+                        <option value="TURN_ON">TURN_ON</option>
+                        <option value="TURN_OFF">TURN_OFF</option>
+                        <option value="RESET">RESET</option>
+                        <option value="SET_CURRENT">SET_CURRENT (Kikusui)</option>
+                        <option value="ENABLE_OCP">ENABLE_OCP (Kikusui)</option>
+                        <option value="DISABLE_OCP">DISABLE_OCP (Kikusui)</option>
+                        <option value="CLEAR_TRIP">CLEAR_TRIP (Kikusui)</option>
+                    </select>
                 </div>
-                <div id="voltage-controls" style="display:none;">
-                    <div class="form-group"><label for="value">Target Voltage (V)</label><input type="number" id="value" step="0.1"></div>
+                <div id="value-controls" style="display:none;">
+                    <div class="form-group">
+                        <label id="value-label" for="value">Value</label>
+                        <input type="number" id="value" step="any">
+                    </div>
                     <fieldset id="ramp-options" style="display:none;">
                         <legend>Ramp Options</legend>
-                        <div class="form-group"><label for="ramp_steps">Steps</label><input type="number" id="ramp_steps" value="10"></div>
-                        <div class="form-group"><label for="ramp_delay_s">Delay (s)</label><input type="number" id="ramp_delay_s" value="0.5" step="0.1"></div>
+                        <div class="form-group"><label for="ramp_steps">Steps</label><input type="number" id="ramp_steps" value="10" min="1"></div>
+                        <div class="form-group"><label for="ramp_delay_s">Delay (s)</label><input type="number" id="ramp_delay_s" value="0.5" step="0.1" min="0.1"></div>
                     </fieldset>
                 </div>
                 <button onclick="sendStructuredCommand()">Send</button>
                 <hr style="margin: 15px 0;">
                 <h3>Raw Command</h3>
                 <div class="form-group"><label for="raw_command_port_id">Port</label><select id="raw_command_port_id"><option>Loading...</option></select></div>
-                <div class="form-group"><label for="raw_command">Command String</label><input type="text" id="raw_command" placeholder="e.g., HPO"></div>
+                <div class="form-group"><label for="raw_command">Command String</label><input type="text" id="raw_command" placeholder="e.g., HPO or MEAS:VOLT?"></div>
                 <button onclick="sendRawCommand()">Send Raw</button>
             </div>
             <div style="margin-top:auto;">
@@ -48,6 +63,7 @@
         </div>
 
         <div id="status-grid">
+            <!-- Status panels will be updated by script, assuming 0-3 exist -->
             <div class="panel" id="status-panel-0"><h2>Port 0</h2><p>Loading...</p></div>
             <div class="panel" id="status-panel-1"><h2>Port 1</h2><p>Loading...</p></div>
             <div class="panel" id="status-panel-2"><h2>Port 2</h2><p>Loading...</p></div>
@@ -64,3 +80,4 @@
     <script src="/static/script.js" defer></script>
 </body>
 </html>
+

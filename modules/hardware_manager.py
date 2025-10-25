@@ -14,13 +14,13 @@ from modules import db_logs as log_database
 from modules.logger import log
 
 # --- Import BOTH Communicator Classes (for type checking) ---
-# These imports are necessary for the 'isinstance' and 'hasattr' checks
 from modules.hamahoto_module import SerialCommunicator
 from modules.kikusui_module import KikusuiCommunicator
 
 # --- Shared Resources ---
-# This dictionary is populated by main.py with mixed object types
+# These dictionaries are populated by main.py with mixed object types
 DEVICE_PORTS = {}
+DEVICE_MAPPINGS = {} # e.g., {3: 1} means Port 3 (Kikusui) uses Port 1 (Serial) for Temp
 IS_TEST_MODE = True # Overwritten by main.py
 
 def generate_ramp_up_steps(start_voltage: float, target_voltage: float, num_steps: int) -> list[float]:
@@ -93,18 +93,78 @@ def worker(q: Queue):
 
         try:
             # --- 1. Common Interface Commands ---
+            
             if cmd_type == "MONITOR":
                 command_str_for_log = "" # Don't log monitor actions
-                monitor_data = communicator.monitor()
                 
-                if isinstance(communicator, KikusuiCommunicator):
-                    database.save_monitor_data(port_id, monitor_data)
-                    log("DEBUG", f"Saved Kikusui monitor data: {monitor_data}")
-                elif isinstance(communicator, SerialCommunicator):
-                    database.save_monitor_data(port_id, monitor_data)
-                    log("DEBUG", f"Saved Serial monitor data: {monitor_data}")
+                # --- Data Combination Logic ---
+                
+                # 1. Get primary data from the port that was tasked
+                primary_data = communicator.monitor()
+                if "error" in primary_data:
+                    log("ERROR", f"Monitor error on primary port {port_id}: {primary_data.get('error')}")
+                    # Save the error state and continue
+                    database.save_monitor_data(port_id, primary_data)
+                    q.task_done(); continue
+
+                # 2. Check if this port_id is a primary device in the mapping
+                temp_port_id = DEVICE_MAPPINGS.get(port_id)
+                
+                if temp_port_id is not None: # Ensure temp_port_id is explicitly checked against None
+                    # This is a primary port (e.g., Kikusui) that needs temperature data
+                    log("DEBUG", f"Port {port_id} needs temp data from Port {temp_port_id}.")
+                    temp_communicator = DEVICE_PORTS.get(temp_port_id)
+                    
+                    if temp_communicator and isinstance(temp_communicator, SerialCommunicator):
+                        # 3. Get temperature data from the mapped Serial port
+                        temp_data = temp_communicator.monitor()
+                        
+                        if "error" in temp_data:
+                            log("WARN", f"Could not get temp data from {temp_port_id}: {temp_data.get('error')}")
+                            # Combine anyway, but without temp data
+                            combined_data = primary_data
+                        else:
+                            # 4. Combine the data
+                            combined_data = primary_data.copy()
+                            # Add temperature data from the serial device
+                            combined_data["temperature"] = temp_data.get("temperature")
+                            # Add serial status flags (contains temp flags)
+                            combined_data["status_flags"] = temp_data.get("status_flags", {})
+                            # Add serial raw status int
+                            combined_data["status_raw"] = temp_data.get("status_raw")
+                            
+                            # Combine raw responses for debugging
+                            combined_data["raw_response"] = (
+                                f"PRIMARY_RAW: {primary_data.get('raw_response', '')} | "
+                                f"TEMP_RAW: {temp_data.get('raw_response', '')}"
+                            )
+                            log("DEBUG", f"Combined data for Port {port_id}: {combined_data}")
+                        
+                        # 5. Save the combined data under the *primary* port_id
+                        database.save_monitor_data(port_id, combined_data)
+                        
+                    else:
+                        log("WARN", f"Mapped temp port {temp_port_id} for {port_id} is not a valid SerialCommunicator or doesn't exist.")
+                        # Save just the primary data
+                        database.save_monitor_data(port_id, primary_data)
+                
                 else:
-                    log("ERROR", f"Unknown communicator type for port {port_id}. Cannot save data.")
+                    # This port is not a primary mapped device.
+                    # Check if it's a temp sensor that is *being used* by another port
+                    is_mapped_temp_sensor = port_id in DEVICE_MAPPINGS.values()
+                    
+                    if is_mapped_temp_sensor and isinstance(communicator, SerialCommunicator):
+                        # This is a temperature sensor. Its data is fetched by its
+                        # primary port (e.g., Kikusui). To avoid double entries,
+                        # we skip saving its standalone monitor task.
+                        log("DEBUG", f"Port {port_id} is a mapped temp sensor. Skipping standalone save.")
+                    else:
+                        # This is a standalone device (e.g., another Kikusui or Serial).
+                        # Save its data normally.
+                        log("DEBUG", f"Port {port_id} is standalone. Saving its data.")
+                        database.save_monitor_data(port_id, primary_data)
+                        
+                # --- ▲▲▲ END Data Combination Logic ▲▲▲ ---
 
             elif cmd_type == "SET_VOLTAGE":
                 command_str_for_log = f"SET_VOLTAGE: {value}V"
@@ -116,11 +176,10 @@ def worker(q: Queue):
                 
             elif cmd_type == "TURN_OFF":
                 command_str_for_log = "TURN_OFF (with Ramp Down)"
-                # This complex task only uses common methods, so it's polymorphic.
                 
                 log("RAMP", f"Starting ramp down for port {port_id} before turning off...")
                 current_monitor_data = communicator.monitor()
-                start_voltage = 20.0
+                start_voltage = 20.0 # temporary input some value
                 if "voltage" in current_monitor_data and current_monitor_data["voltage"] is not None:
                     start_voltage = current_monitor_data["voltage"]
                 else:
@@ -128,13 +187,12 @@ def worker(q: Queue):
                 
                 target_voltage = 20.5 # Min HV value
                 if start_voltage > target_voltage:
-                    steps = generate_ramp_down_steps(start_voltage, target_voltage, 10)
+                    steps = generate_ramp_down_steps(start_voltage, target_voltage, 20)
                     for voltage_step in steps:
                         communicator.set_voltage(voltage_step)
-                        # Monitor during ramp down (uses Pattern 3)
-                        monitor_data = communicator.monitor()
-                        if isinstance(communicator, (KikusuiCommunicator, SerialCommunicator)):
-                            database.save_monitor_data(port_id, monitor_data)
+                        # Queue a monitor task during ramp down
+                        monitor_task = {"port_id": port_id, "command_info": {"command_type": "MONITOR"}}
+                        q.put(monitor_task)
                         time.sleep(0.5)
                 
                 log("INFO", f"Sending final TURN_OFF to port {port_id}.")
@@ -146,7 +204,6 @@ def worker(q: Queue):
 
             elif cmd_type == "RAMP_VOLTAGE":
                 command_str_for_log = f"RAMP_VOLTAGE to {value}V"
-                # This complex task also only uses common methods.
                 current_monitor_data = communicator.monitor()
                 start_voltage = 20.0
                 if "voltage" in current_monitor_data and current_monitor_data["voltage"] is not None:
@@ -155,24 +212,38 @@ def worker(q: Queue):
                 if start_voltage >= value:
                     steps = [value]
                 else:
-                    steps = generate_ramp_up_steps(start_voltage, value, command_info.get("ramp_steps", 10))
+                    steps = generate_ramp_up_steps(start_voltage, value, command_info.get("ramp_steps", 20))
                 
                 delay_s = command_info.get("ramp_delay_s", 0.5)
                 step_responses = []
                 for voltage_step in steps:
                     step_response = communicator.set_voltage(voltage_step)
                     step_responses.append(step_response)
-                    # Monitor during ramp up (uses Pattern 3)
+                    log("DEBUG", f"RAMP UP step: Monitoring port {port_id} after setting {voltage_step}V")
                     monitor_data = communicator.monitor()
-                    if isinstance(communicator, (KikusuiCommunicator, SerialCommunicator)):
-                        database.save_monitor_data(port_id, monitor_data)
-                    time.sleep(delay_s)
-                response = step_responses[-1] if step_responses else b"RAMP_OK"
+                    # Apply combination logic if needed (copy from MONITOR task)
+                    temp_port_id = DEVICE_MAPPINGS.get(port_id)
+                    if temp_port_id is not None:
+                         temp_communicator = DEVICE_PORTS.get(temp_port_id)
+                         if temp_communicator and isinstance(temp_communicator, SerialCommunicator):
+                             temp_data = temp_communicator.monitor()
+                             if "error" not in temp_data:
+                                 monitor_data["temperature"] = temp_data.get("temperature")
+                                 monitor_data["status_flags"] = temp_data.get("status_flags", {})
+                                 monitor_data["status_raw"] = temp_data.get("status_raw")
+                                 monitor_data["raw_response"] = f"PRI:{monitor_data.get('raw_response', '')}|TEMP:{temp_data.get('raw_response', '')}"
+                             else:
+                                 log("WARN", f"Could not get temp data from {temp_port_id} during ramp.")
+                         else:
+                             log("WARN", f"Mapped temp port {temp_port_id} invalid during ramp.")
 
-            # --- 2. Specific Commands ---
+                    database.save_monitor_data(port_id, monitor_data) # Save immediately (combined or not)
+                    time.sleep(delay_s) # Keep the delay
+                response = step_responses[-1] if step_responses else b"RAMP_OK"
+                log("RAMP", f"Ramp up complete for port {port_id}.")
+                
+            # --- 2. Kikusui-Specific Commands ---
             # Differentiation Pattern 2 (hasattr)
-            # We check if the communicator object *has* the requested
-            # method before trying to call it.
             
             elif cmd_type == "SET_CURRENT":
                 command_str_for_log = f"SET_CURRENT: {value}A"
@@ -190,28 +261,11 @@ def worker(q: Queue):
                     response = b"ERROR:COMMAND_NOT_SUPPORTED"
                     log("WARN", f"Port {port_id} (Type: {type(communicator).__name__}) does not support ENABLE_OCP.")
             
-            elif cmd_type == "DISABLE_OCP":
-                command_str_for_log = "DISABLE_OCP"
-                if hasattr(communicator, "disable_ocp"):
-                    response = communicator.disable_ocp()
-                else:
-                    response = b"ERROR:COMMAND_NOT_SUPPORTED"
-                    log("WARN", f"Port {port_id} (Type: {type(communicator).__name__}) does not support DISABLE_OCP.")
-
-            elif cmd_type == "CLEAR_TRIP":
-                command_str_for_log = "CLEAR_TRIP"
-                if hasattr(communicator, "clear_protection_trip"):
-                    response = communicator.clear_protection_trip()
-                else:
-                    response = b"ERROR:COMMAND_NOT_SUPPORTED"
-                    log("WARN", f"Port {port_id} (Type: {type(communicator).__name__}) does not support CLEAR_TRIP.")
-
-            # --- 3. Other (RAW / Unknown) ---
+            # --- 3. Other Commands ---
             
             elif cmd_type == "RAW":
                 raw_cmd = command_info.get("raw_command", "")
                 command_str_for_log = f"RAW: {raw_cmd}"
-                # .send_raw_command() is also a common interface method (Pattern 1)
                 response = communicator.send_raw_command(raw_cmd)
             
             else:
@@ -232,7 +286,7 @@ def worker(q: Queue):
             q.task_done()
 
 def monitoring_loop(q: Queue, interval_seconds: int, port_ids_to_monitor: list[int]):
-    """Periodically queues MONITOR commands for the specified active ports."""
+    """Periodically queues MONITOR commands for all active ports."""
     log("MONITOR", f"Loop started. Interval: {interval_seconds}s for ports: {port_ids_to_monitor}.")
     time.sleep(2) # Give worker thread time to initialize fully
     while True:
@@ -243,11 +297,10 @@ def monitoring_loop(q: Queue, interval_seconds: int, port_ids_to_monitor: list[i
             if port_id in DEVICE_PORTS:
                 communicator = DEVICE_PORTS[port_id]
                 
-                # Check if its communicator (real or mock) is initialized
                 is_initialized = False
-                if hasattr(communicator, 'ser'):       # For SerialCommunicator
+                if hasattr(communicator, 'ser'):
                     is_initialized = is_initialized or communicator.ser
-                if hasattr(communicator, 'instrument'): # For KikusuiCommunicator
+                if hasattr(communicator, 'instrument'):
                     is_initialized = is_initialized or communicator.instrument
 
                 if communicator and is_initialized:

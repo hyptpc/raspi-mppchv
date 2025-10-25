@@ -20,7 +20,6 @@ from modules import db_logs as log_database
 from modules.logger import log
 
 # --- Import Worker/Monitor functions and shared resources ---
-# We now import from 'hardware_manager' instead of 'serial_com'
 from modules import hardware_manager
 
 # --- Import BOTH Communicator Classes ---
@@ -68,14 +67,15 @@ async def lifespan(app: FastAPI):
     # lifespan uses the 'config' loaded by __main__
     raw_labels = config.get('port_labels', {})
     for port_id in hardware_manager.DEVICE_PORTS.keys():
-        port_labels[port_id] = raw_labels.get(port_id, f"Port {port_id}")
+        if port_id in [0, 1, 2, 3]:
+            port_labels[port_id] = raw_labels.get(port_id, f"Port {port_id}")
     log("INFO", f"Loaded port labels: {port_labels}")
 
     monitoring_interval = config.get('general', {}).get('monitoring_interval', 5)
     monitoring_thread = threading.Thread(
         target=hardware_manager.monitoring_loop,
         # Pass the queue, interval, and the dynamically determined port list/keys
-        args=(command_queue, monitoring_interval, list(hardware_manager.DEVICE_PORTS.keys())), 
+        args=(command_queue, monitoring_interval, list(hardware_manager.DEVICE_PORTS.keys())),
         daemon=True
     )
     monitoring_thread.start()
@@ -137,7 +137,7 @@ async def get_display_window():
 # --- API: Data Retrieval Routes ---
 
 @app.get("/api/logs", tags=["Data Retrieval"])
-async def get_all_action_logs():
+async def get_action_logs():
     """API endpoint to fetch action log data as JSON."""
     return log_database.get_action_logs()
 
@@ -178,7 +178,7 @@ async def queue_raw_command(cmd: RawCommand):
     if cmd.port_id not in hardware_manager.DEVICE_PORTS:
         valid_ports = sorted(list(hardware_manager.DEVICE_PORTS.keys()))
         return {"status": "error", "message": f"port_id is invalid. Valid ports are: {valid_ports}"}
-    if not cmd.command: 
+    if not cmd.command:
         return {"status": "error", "message": "Raw command cannot be empty."}
     
     task = {"port_id": cmd.port_id, "command_info": {"command_type": "RAW", "raw_command": cmd.command}}
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     # Read configuration file
     try:
-        with open(args.config, 'r') as f: 
+        with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
         log("INFO", f"Loaded config from: {args.config}")
     except Exception as e:
@@ -217,6 +217,10 @@ if __name__ == "__main__":
     # Apply global settings
     is_test_mode = config.get('test_mode', {}).get('enabled', True)
     hardware_manager.IS_TEST_MODE = is_test_mode # Set mode in the manager module
+    
+    # --- Pass device mappings to the hardware manager ---
+    hardware_manager.DEVICE_MAPPINGS = config.get('device_mappings', {})
+    log("INFO", f"Loaded device mappings: {hardware_manager.DEVICE_MAPPINGS}")
     
     # --- MODIFIED: Multi-Device Initialization ---
     
@@ -245,7 +249,7 @@ if __name__ == "__main__":
                 log("WARN", f"Skipping invalid device config entry: {device_config}. 'id', 'type', and 'connection' are required.")
                 continue
 
-            # --- Differentiation based on 'type' ---
+            # --- Differentiation based on 'type' from config.yaml ---
             if dev_type == "serial_hv":
                 # Instantiate the original SerialCommunicator
                 communicator = SerialCommunicator(connection_info, is_test_mode)
@@ -284,15 +288,20 @@ if __name__ == "__main__":
             
     # Test mode fallback: create mock objects for both types
     if is_test_mode:
-        # Port 0, 1: Mock Serial HV
-        for i in range(2):
-            if i not in hardware_manager.DEVICE_PORTS:
+        # Check config to decide which mocks to create
+        mock_serial_ids = [d.get('id') for d in configured_devices if d.get('type') == 'serial_hv']
+        mock_kikusui_ids = [d.get('id') for d in configured_devices if d.get('type') == 'kikusui_visa']
+        
+        # Create serial mocks if not in config
+        for i in [d['id'] for d in configured_devices if d['type'] == 'serial_hv']:
+             if i not in hardware_manager.DEVICE_PORTS:
                 mock_name = f"/dev/mockTTY{i}"
                 hardware_manager.DEVICE_PORTS[i] = SerialCommunicator(mock_name, True)
                 log("INFO", f"Using mock 'serial_hv' communicator for Port {i}.")
-        # Port 2, 3: Mock Kikusui VISA
-        for i in range(2, 4):
-            if i not in hardware_manager.DEVICE_PORTS:
+        
+        # Create kikusui mocks if not in config
+        for i in [d['id'] for d in configured_devices if d['type'] == 'kikusui_visa']:
+             if i not in hardware_manager.DEVICE_PORTS:
                 mock_resource = f"MOCK::KIKUSUI::{i}"
                 hardware_manager.DEVICE_PORTS[i] = KikusuiCommunicator(mock_resource, True)
                 log("INFO", f"Using mock 'kikusui_visa' communicator for Port {i}.")
