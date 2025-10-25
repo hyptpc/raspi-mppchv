@@ -1,35 +1,69 @@
 # General application settings
 general:
-  # Monitoring interval in seconds
+  # Interval for the monitoring loop to query devices (in seconds)
   monitoring_interval: 10
-  # The time range (in minutes) to display on the browser graph.
-  display_time_window_minutes: 5
-  
+  # Time window for data displayed on the browser graphs (in minutes)
+  display_time_window_minutes: 10
 
-# Server settings
+# Server settings for the FastAPI web application
 server:
-  host: "0.0.0.0"  # Listen on all network interfaces
-  port: 8000       # Port to run the server on
+  host: "0.0.0.0"  # Listen on all available network interfaces
+  port: 8000       # Port the web server will run on
 
-# Serial port device paths for each logical port ID
-serial_ports:
-  0: /dev/ttyAMA5
-  1: /dev/ttyAMA2
-  2: /dev/ttyAMA4
-  3: /dev/ttyAMA0
+# --- Device Definitions ---
+# This list defines all hardware devices connected to the system.
+# 'main.py' reads this list to instantiate the correct communicator class.
+devices:
+  # --- Serial HV Devices (e.g., Hamamatsu modules, Temperature sensors) ---
+  - id: 0 # Unique identifier for this device (used as port_id)
+    type: "serial_hv" # Tells main.py to use SerialCommunicator (from hamahoto_module.py)
+    connection: "/dev/ttyAMA5" # The actual serial port path on the Raspberry Pi
 
+  - id: 1
+    type: "serial_hv"
+    connection: "/dev/ttyAMA2"
+
+  - id: 2
+    type: "serial_hv"
+    connection: "/dev/ttyAMA4"
+
+  # --- Kikusui VISA Devices (HV Power Supplies) ---
+  - id: 3
+    type: "kikusui_visa" # Tells main.py to use KikusuiCommunicator (from kikusui_module.py)
+    connection: "192.168.20.42" # The IP address of the Kikusui power supply
+
+  # Example of a second Kikusui device (optional)
+  # - id: 4
+  #   type: "kikusui_visa"
+  #   connection: "192.168.20.43"
+
+# --- Device Mappings (Optional) ---
+# Defines which primary device (e.g., Kikusui HV) should get temperature data
+# from which secondary device (e.g., Serial Temperature Sensor).
+# Format: { primary_device_id: secondary_temp_sensor_id }
+# The hardware_manager.py uses this to combine data during MONITOR tasks.
+device_mappings:
+  # 4: 1 # Example: Kikusui device 4 gets temp from Serial device 1
+  # Devices not listed as a key here (like id=2) are treated as standalone.
+  # Devices listed as a value here (like id=0) will have their standalone MONITOR data skipped by the worker.
+
+# --- Port Labels ---
+# Display names for each device ID used in the web UI (dropdowns, panels, graphs).
+# main.py filters this to only include IDs <= MAX_UI_PORT_ID (currently 3) for the /api/port-labels endpoint.
 port_labels:
-  0: "BH2"
-  1: "BAC"
-  2: "KVC-1"
-  3: "KVC-2"
+  0: "BAC"   # Label for the temperature sensor (might be hidden from main controls if ID > 3)
+  1: "BH2"   # Label for another temp sensor
+  2: "KVC-1" # Label for the standalone serial HV module
+  3: "KVC-2" # Label for the Kikusui power supply
 
+# --- Database Settings ---
 databases:
-  db_directory: "data"
-  db_suffix: ""
+  db_directory: "data" # Directory where SQLite database files (measurements.db, action_log.db) will be stored
+  db_suffix: ""        # Optional suffix to append to database filenames (e.g., "_run1")
 
-# Test mode setting
+# --- Test Mode ---
 test_mode:
-  # Set to true to run in test mode (simulated hardware)
-  # Set to false to run with real hardware
+  # Set to true to run the application with simulated hardware responses (mock communicators).
+  # Set to false to attempt connection to real hardware defined in 'devices'.
   enabled: False
+

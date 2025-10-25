@@ -1,142 +1,205 @@
 """
-Handles database operations for monitoring data (measurements.db).
-Connection is initialized by main.py.
+Handles database connection, table definition (Measurement),
+and data saving logic for monitoring data.
+Maps status information from different device types to a unified schema.
 """
-from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
 import os
 
-# --- 1. Database Connection (Global but uninitialized) ---
+from modules.logger import log
+
+# --- Database Setup ---
+DATABASE_URL = "sqlite:///data/measurements.db" # Default, can be overridden by main.py
 engine = None
 SessionLocal = None
 Base = declarative_base()
 
-
-# --- 2. Initialization Function (called by main.py) ---
-def init_database_connection(db_directory: str, suffix: str = ""):
-    """
-    Initializes the database connection using the directory path and suffix from config.
-    """
-    global engine, SessionLocal
-    
-    filename_suffix = f"_{suffix}" if suffix else ""
-    DB_FILENAME = f"measurements{filename_suffix}.db"
-    
-    if db_directory and not os.path.exists(db_directory):
-        try:
-            os.makedirs(db_directory, exist_ok=True)
-        except OSError as e:
-            print(f"ERROR: Could not create database directory {db_directory}: {e}")
-            raise
-            
-    db_path = os.path.join(db_directory, DB_FILENAME)
-    DATABASE_URL = f"sqlite:///{db_path}"
-    
-    engine = create_engine(
-        DATABASE_URL, 
-        connect_args={"check_same_thread": False}
-    )
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
-# --- 3. Table Schema (no changes) ---
+# --- Database Model (Unified Schema) ---
 class Measurement(Base):
-    __tablename__ = "measurements"
+    """SQLAlchemy model for the 'measurements' table."""
+    __tablename__ = 'measurements'
+
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime)
-    port_id = Column(Integer)
-    status_raw = Column(Integer, nullable=True)
+    timestamp = Column(DateTime, index=True, default=datetime.now)
+    port_id = Column(Integer, index=True)
+
+    # --- Common Fields ---
     voltage = Column(Float, nullable=True)
     current = Column(Float, nullable=True)
-    temperature = Column(Float, nullable=True)
-    is_hv_on = Column(Boolean, nullable=True)
+    is_hv_on = Column(Boolean, nullable=True) # Common status flag
+    raw_response = Column(String, nullable=True) # Raw string for debugging
+
+    # --- Unified Status Fields (Used by both Serial and Kikusui) ---
+    # Serial uses status_raw directly. Kikusui status is mapped onto these flags.
+    status_raw = Column(Integer, nullable=True) # Original raw status integer (Mainly for Serial)
+    temperature = Column(Float, nullable=True) # Primarily from Serial
+    
+    # Unified Flag: Overcurrent Protection Status
+    # - Serial: maps to flags.get("is_overcurrent_protection_active")
+    # - Kikusui: maps to status_info.get("has_ocp_tripped")
     is_overcurrent_protection_active = Column(Boolean, nullable=True)
-    is_current_out_of_spec = Column(Boolean, nullable=True)
+    
+    # Unified Flag: Current Limit / Constant Current Status
+    # - Serial: maps to flags.get("is_current_out_of_spec")
+    # - Kikusui: maps to status_info.get("is_cc_mode")
+    is_current_out_of_spec = Column(Boolean, nullable=True) # Unified name
+
+    # --- Serial (Hamamatsu) Specific Temperature Flags ---
+    # These remain as they are specific to the temperature sensor module
     is_temp_sensor_connected = Column(Boolean, nullable=True)
     is_temp_in_range = Column(Boolean, nullable=True)
     is_temp_correction_enabled = Column(Boolean, nullable=True)
-    raw_response = Column(String, nullable=True)
 
-# --- 4. Database Interaction Functions ---
+
+def init_database_connection(db_dir: str = "data", suffix: str = ""):
+    """Initializes the database engine and session."""
+    global engine, SessionLocal, DATABASE_URL
+    
+    os.makedirs(db_dir, exist_ok=True)
+    db_name = f"measurements{'_' if suffix else ''}{suffix}.db"
+    db_path = os.path.join(db_dir, db_name)
+    DATABASE_URL = f"sqlite:///{db_path}"
+    
+    try:
+        engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        log("INFO", f"Database connection initialized: {DATABASE_URL}")
+    except Exception as e:
+        log("ERROR", f"Failed to initialize database connection: {e}")
+        raise
+
 def init_db():
-    """
-    Creates all database tables based on the schema.
-    This function *requires* init_database_connection to have been called first.
-    """
+    """Creates the database tables if they don't exist."""
     if not engine:
-        raise Exception("Database connection not initialized. Call init_database_connection() first.")
-    Base.metadata.create_all(bind=engine)
+        log("ERROR", "init_db called before database connection was initialized.")
+        return
+    try:
+        Base.metadata.create_all(bind=engine)
+        log("INFO", f"Database tables checked/created for {DATABASE_URL}")
+    except Exception as e:
+        log("ERROR", f"Failed to create database tables: {e}")
+        raise
 
 def save_monitor_data(port_id: int, data: dict):
-    """Saves parsed monitoring data to the database."""
+    """
+    Saves parsed monitoring data (from either Serial or Kikusui, or combined)
+    to the database using a unified schema. Handles different input structures.
+    """
     if not SessionLocal:
-        print("ERROR: save_monitor_data called before database connection was initialized.")
+        log("ERROR", "save_monitor_data called before DB connection initialized.")
+        return
+    
+    if "error" in data:
+        log("WARN", f"Skipping DB save for port {port_id} due to monitor error: {data.get('error')}")
         return
         
     db = SessionLocal()
     try:
-        flags = data.get("status_flags", {})
+        # --- Extract Common Data ---
+        voltage = data.get("voltage")
+        current = data.get("current")
+        raw_response = data.get("raw_response")
+        temperature = data.get("temperature") # From Serial or combined
+
+        # --- Determine HV On Status (Unified) ---
+        is_hv_on = data.get("is_on") # Check Kikusui key first
+        if is_hv_on is None:
+             flags = data.get("status_flags", {})
+             is_hv_on = flags.get("is_hv_on") # Fallback to Serial key
+
+        # --- Extract and Map Status Flags (Unified Logic) ---
+        flags = data.get("status_flags", {})       # Primarily from Serial
+        status_info = data.get("status_info", {}) # Primarily from Kikusui
+        status_raw = data.get("status_raw")       # Only from Serial
+
+        # Map Overcurrent Status
+        is_overcurrent = flags.get("is_overcurrent_protection_active") # Serial value
+        if is_overcurrent is None:
+            is_overcurrent = status_info.get("has_ocp_tripped") # Fallback to Kikusui value
+
+        # Map Current Limit / CC Mode Status
+        is_current_limit = flags.get("is_current_out_of_spec") # Serial value
+        if is_current_limit is None:
+            is_current_limit = status_info.get("is_cc_mode") # Fallback to Kikusui value
+
+        # --- Extract Serial-Specific Temp Flags ---
+        is_temp_sensor_connected = flags.get("is_temp_sensor_connected")
+        is_temp_in_range = flags.get("is_temp_in_range")
+        is_temp_correction_enabled = flags.get("is_temp_correction_enabled")
+
+        # --- Create DB Model Instance (Using Unified Columns) ---
         db_measurement = Measurement(
             timestamp=datetime.now(),
             port_id=port_id,
-            status_raw=data.get("status_raw"),
-            voltage=data.get("voltage"),
-            current=data.get("current"),
-            temperature=data.get("temperature"),
-            is_hv_on=flags.get("is_hv_on"),
-            is_overcurrent_protection_active=flags.get("is_overcurrent_protection_active"),
-            is_current_out_of_spec=flags.get("is_current_out_of_spec"),
-            is_temp_sensor_connected=flags.get("is_temp_sensor_connected"),
-            is_temp_in_range=flags.get("is_temp_in_range"),
-            is_temp_correction_enabled=flags.get("is_temp_correction_enabled"),
-            raw_response=data.get("raw_response")
+            
+            voltage=voltage,
+            current=current,
+            is_hv_on=is_hv_on,
+            raw_response=raw_response,
+            temperature=temperature,
+            status_raw=status_raw, # Primarily Serial's raw value
+            
+            # Use unified columns
+            is_overcurrent_protection_active=is_overcurrent,
+            is_current_out_of_spec=is_current_limit,
+            
+            # Serial specific temp flags
+            is_temp_sensor_connected=is_temp_sensor_connected,
+            is_temp_in_range=is_temp_in_range,
+            is_temp_correction_enabled=is_temp_correction_enabled,
         )
+        
         db.add(db_measurement)
         db.commit()
-    finally:
-        db.close()
-
-def get_data_from_db(skip: int = 0, limit: int = 100):
-    """Retrieves the latest measurement records from the database."""
-    if not SessionLocal:
-        print("ERROR: get_data_from_db called before database connection was initialized.")
-        return [] # Return empty list on error
         
-    db = SessionLocal()
-    try:
-        results = db.query(Measurement).order_by(Measurement.timestamp.desc()).offset(skip).limit(limit).all()
-        return results
-    finally:
-        db.close()
-
-def get_data_from_db_since(start_time: datetime):
-    """
-    Fetches all Measurement records from the database where the timestamp
-    is on or after the specified start_time.
-    """
-    if not SessionLocal:
-        print("ERROR: get_data_from_db_since called before database connection was initialized.")
-        return []
-        
-    db = SessionLocal()
-    try:
-        # Filter by time and sort ASC (oldest first)
-        # This is critical for data.findLast() in JavaScript to work correctly.
-        results = db.query(Measurement)\
-                    .filter(Measurement.timestamp >= start_time)\
-                    .order_by(Measurement.timestamp.asc())\
-                    .all()
-        return results
-    finally:
-        db.close()
-
-if __name__ == '__main__':
-    # This script is not meant to be run directly. Run main.py instead.
-    print("Initializing measurements database manually...")
-    try:
-        init_database_connection("data") # Use default "data" dir for manual init
-        init_db()
-        print("Manual DB init complete for 'data/measurements.db'")
+    except SQLAlchemyError as e:
+        log("ERROR", f"Database error saving measurement for port {port_id}: {e}")
+        db.rollback()
     except Exception as e:
-        print(f"Manual init failed: {e}")
+        log("ERROR", f"Unexpected error saving measurement for port {port_id}: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def get_data_from_db_since(start_time: datetime) -> list[dict]:
+    """Fetches monitoring data from the database since the specified start_time."""
+    if not SessionLocal:
+        log("ERROR", "get_data_from_db_since called before DB connection initialized.")
+        return []
+
+    db = SessionLocal()
+    try:
+        measurements = db.query(Measurement)\
+            .filter(Measurement.timestamp >= start_time)\
+            .order_by(Measurement.timestamp.asc())\
+            .all()
+
+        # Convert SQLAlchemy objects to dictionaries for JSON serialization
+        data = []
+        for m in measurements:
+            data.append({
+                "id": m.id,
+                "timestamp": m.timestamp.isoformat(),
+                "port_id": m.port_id,
+                "voltage": m.voltage,
+                "current": m.current,
+                "temperature": m.temperature,
+                "is_hv_on": m.is_hv_on,
+                "is_overcurrent": m.is_overcurrent_protection_active,
+                "is_current_limit": m.is_current_out_of_spec,
+                "is_temp_sensor_connected": m.is_temp_sensor_connected,
+                "is_temp_in_range": m.is_temp_in_range,      
+                "is_temp_correction_enabled": m.is_temp_correction_enabled,      
+            })
+        return data
+
+    except SQLAlchemyError as e:
+        log("ERROR", f"Database error fetching measurements: {e}")
+        return []
+    finally:
+        db.close()
+
