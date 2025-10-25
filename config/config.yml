@@ -5,19 +5,34 @@ general:
   # The time range (in minutes) to display on the browser graph.
   display_time_window_minutes: 5
   
-
 # Server settings
 server:
   host: "0.0.0.0"  # Listen on all network interfaces
   port: 8000       # Port to run the server on
 
-# Serial port device paths for each logical port ID
-serial_ports:
-  0: /dev/ttyAMA5
-  1: /dev/ttyAMA2
-  2: /dev/ttyAMA4
-  3: /dev/ttyAMA0
+# --- Unified devices list ---
+# Replaces the separate 'serial_ports' and 'kikusui_devices' sections.
+# main.py will read this list and instantiate the correct communicator
+# based on the 'type' field.
+devices:
+  # --- Serial HV Devices ---
+  - id: 0
+    type: "serial_hv"
+    connection: "/dev/ttyAMA5"
+  - id: 1
+    type: "serial_hv"
+    connection: "/dev/ttyAMA2"
+  - id: 2
+    type: "serial_hv"
+    connection: "/dev/ttyAMA4"
+  # - id: 3
+  #   type: "serial_hv"
+  #   connection: "/dev/ttyAMA0"  
+  - id: 3
+    type: "kikusui_visa"
+    connection: "192.168.20.42"
 
+# Labels for ALL ports (no change needed here)
 port_labels:
   0: "BH2"
   1: "BAC"
@@ -30,6 +45,4 @@ databases:
 
 # Test mode setting
 test_mode:
-  # Set to true to run in test mode (simulated hardware)
-  # Set to false to run with real hardware
   enabled: False
