@@ -210,7 +210,8 @@ def worker(q: Queue):
                         database.save_monitor_data(port_id, monitor_data) # Save immediately (combined or not)
                         time.sleep(1)
                         
-
+                monitor_task = {"port_id": port_id, "command_info": {"command_type": "MONITOR"}}
+                q.put(monitor_task)
                 log("INFO", f"Sending final TURN_OFF to port {port_id}.")
                 response = communicator.turn_off()
 
