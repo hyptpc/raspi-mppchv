@@ -472,7 +472,7 @@ async function initializeApp() {
         setInterval(() => {
             updateDataAndCharts();
             fetchQueueStatus();
-        }, 5000);
+        }, 2000);
 
     } catch (error) {
         console.error("Initialization failed:", error);
