@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Main application file supporting multiple device types (serial and VISA)
 dynamically loaded from a unified YAML configuration.
