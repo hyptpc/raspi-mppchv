@@ -50,6 +50,9 @@ SERVER_FETCH_MINUTES = DISPLAY_WINDOW_MINUTES + 5
 config = None # This global config will be loaded by __main__ for lifespan
 port_labels = {}
 
+# --- Define the command queue globally ---
+command_queue = Queue()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manages startup/shutdown and starts background threads."""
@@ -133,6 +136,14 @@ async def get_port_labels():
 async def get_display_window():
     """Provides the configured display time window (in minutes) to the frontend."""
     return {"display_time_window_minutes": DISPLAY_WINDOW_MINUTES}
+
+@app.get("/api/queue-status", tags=["Status"])
+async def get_queue_status():
+    """Returns the current number of tasks waiting in the command queue."""
+    global command_queue
+    size = command_queue.qsize()
+    log("DEBUG", f"API /api/queue-status returning size: {size}")
+    return {"queue_size": size}
 
 # --- API: Data Retrieval Routes ---
 

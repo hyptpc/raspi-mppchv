@@ -9,6 +9,7 @@ that share a common interface.
 """
 import time
 from queue import Queue
+import threading
 from modules import db_measurements as database
 from modules import db_logs as log_database
 from modules.logger import log
@@ -22,6 +23,9 @@ from modules.kikusui_module import KikusuiCommunicator
 DEVICE_PORTS = {}
 DEVICE_MAPPINGS = {} # e.g., {3: 1} means Port 3 (Kikusui) uses Port 1 (Serial) for Temp
 IS_TEST_MODE = True # Overwritten by main.py
+
+is_system_busy = False
+system_busy_lock = threading.Lock()
 
 def generate_ramp_up_steps(start_voltage: float, target_voltage: float, num_steps: int) -> list[float]:
     """Generates a list of voltage steps with an ease-out curve (smaller steps near target)."""
@@ -61,6 +65,9 @@ def worker(q: Queue):
     The main polymorphic worker function that processes tasks from the queue
     and "differentiates" (sumiwake) command handling based on the communicator type.
     """
+    # --- Reference global busy flag ---
+    global is_system_busy
+
     log("WORKER", "Polymorphic worker thread started and waiting for tasks...")
     while True:
         task = q.get()
@@ -91,9 +98,17 @@ def worker(q: Queue):
         command_str_for_log = ""
         value = command_info.get("value")
 
+        # --- Flag to track if this task blocks monitoring ---
+        is_blocking_task = cmd_type in ["RAMP_VOLTAGE", "TURN_OFF"]
+
         try:
             # --- 1. Common Interface Commands ---
             
+            if is_blocking_task:
+                with system_busy_lock:
+                    is_system_busy = True
+                log("INFO", f"System BUSY due to task on port {port_id}: {cmd_type}")
+
             if cmd_type == "MONITOR":
                 command_str_for_log = "" # Don't log monitor actions
                 
@@ -300,40 +315,62 @@ def worker(q: Queue):
             log_database.save_action_log(port_id, error_cmd_str, str(e).encode())
             
         finally:
+            if is_blocking_task:
+                with system_busy_lock:
+                    is_system_busy = False
+                log("INFO", f"System IDLE after task on port {port_id}: {cmd_type}")
             q.task_done()
 
 def monitoring_loop(q: Queue, interval_seconds: int, port_ids_to_monitor: list[int]):
     """Periodically queues MONITOR commands for all active ports."""
+    # --- Reference global busy flag ---
+    global is_system_busy
+
     log("MONITOR", f"Loop started. Interval: {interval_seconds}s for ports: {port_ids_to_monitor}.")
     time.sleep(2) # Give worker thread time to initialize fully
     while True:
-        log("MONITOR", f"Queuing MONITOR commands for ports: {port_ids_to_monitor}...")
-        active_port_count = 0
-        
-        for port_id in port_ids_to_monitor:
-            if port_id in DEVICE_PORTS:
-                communicator = DEVICE_PORTS[port_id]
-                
-                is_initialized = False
-                if hasattr(communicator, 'ser'):
-                    is_initialized = is_initialized or communicator.ser
-                if hasattr(communicator, 'instrument'):
-                    is_initialized = is_initialized or communicator.instrument
+        # --- Check system busy flag BEFORE queuing tasks ---
+        system_is_currently_busy = False # Default to not busy
+        try:
+             with system_busy_lock:
+                system_is_currently_busy = is_system_busy # Read the flag value safely
+        except Exception as lock_e:
+            log("ERROR", f"Error checking system busy status: {lock_e}")
+            # If lock fails, maybe wait and try again or proceed cautiously
+            time.sleep(0.1) # Short delay before next check
+            continue # Skip this monitoring cycle if lock failed
 
-                if communicator and is_initialized:
-                    task = {
-                        "port_id": port_id,
-                        "command_info": { "command_type": "MONITOR" }
-                    }
-                    q.put(task)
-                    active_port_count += 1
+        if system_is_currently_busy:
+            log("DEBUG", "Monitoring loop: System is busy. Skipping MONITOR task queuing.")
+        else:
+
+            log("MONITOR", f"Queuing MONITOR commands for ports: {port_ids_to_monitor}...")
+            active_port_count = 0
+            
+            for port_id in port_ids_to_monitor:
+                if port_id in DEVICE_PORTS:
+                    communicator = DEVICE_PORTS[port_id]
+                    
+                    is_initialized = False
+                    if hasattr(communicator, 'ser'):
+                        is_initialized = is_initialized or communicator.ser
+                    if hasattr(communicator, 'instrument'):
+                        is_initialized = is_initialized or communicator.instrument
+
+                    if communicator and is_initialized:
+                        task = {
+                            "port_id": port_id,
+                            "command_info": { "command_type": "MONITOR" }
+                        }
+                        q.put(task)
+                        active_port_count += 1
+                    else:
+                        log("WARN", f"Skipping monitor for port {port_id}: communicator not initialized.")
                 else:
-                    log("WARN", f"Skipping monitor for port {port_id}: communicator not initialized.")
-            else:
-                log("WARN", f"Skipping monitor for port {port_id}: port not configured in DEVICE_PORTS.")
+                    log("WARN", f"Skipping monitor for port {port_id}: port not configured in DEVICE_PORTS.")
                 
-        if active_port_count == 0:
-            log("WARN", "Monitoring loop found no active/configured ports to monitor.")
+            if active_port_count == 0:
+                log("WARN", "Monitoring loop found no active/configured ports to monitor.")
             
         time.sleep(interval_seconds)
 

@@ -406,6 +406,30 @@ function showNotification(message, type = 'success') {
 }
 // --- END ADDITION ---
 
+async function fetchQueueStatus() {
+    try {
+        const response = await fetch('/api/queue-status');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        const el = document.getElementById('queue-status-display');
+        
+        if (el) {
+            const queueSize = data.queue_size || 0;
+            el.textContent = `(Queue: ${queueSize})`;   
+            el.style.color = '#888'; 
+        }
+    } catch (error) {
+        console.warn('Could not fetch queue status:', error);
+        const el = document.getElementById('queue-status-display');
+        if (el) {
+            el.textContent = '(Queue: ?)'; 
+            el.style.color = '#888';
+        }
+    }
+}
+
 
 /**
  * Main application entry point. Runs once when the page loads.
@@ -442,9 +466,13 @@ async function initializeApp() {
 
         // Initial data load
         await updateDataAndCharts();
+        await fetchQueueStatus();
 
         // Set interval for updates
-        setInterval(updateDataAndCharts, 5000);
+        setInterval(() => {
+            updateDataAndCharts();
+            fetchQueueStatus();
+        }, 5000);
 
     } catch (error) {
         console.error("Initialization failed:", error);
