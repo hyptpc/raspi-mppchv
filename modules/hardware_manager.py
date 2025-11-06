@@ -221,14 +221,28 @@ def worker(q: Queue):
                                     log("WARN", f"Could not get temp data from {temp_port_id} during ramp.")
                             else:
                                 log("WARN", f"Mapped temp port {temp_port_id} invalid during ramp.")
-
                         database.save_monitor_data(port_id, monitor_data) # Save immediately (combined or not)
                         time.sleep(1)
-                        
-                monitor_task = {"port_id": port_id, "command_info": {"command_type": "MONITOR"}}
-                q.put(monitor_task)
                 log("INFO", f"Sending final TURN_OFF to port {port_id}.")
                 response = communicator.turn_off()
+
+                monitor_data = communicator.monitor()
+                # Apply combination logic if needed (copy from MONITOR task)
+                temp_port_id = DEVICE_MAPPINGS.get(port_id)
+                if temp_port_id is not None:
+                    temp_communicator = DEVICE_PORTS.get(temp_port_id)
+                    if temp_communicator and isinstance(temp_communicator, SerialCommunicator):
+                        temp_data = temp_communicator.monitor()
+                        if "error" not in temp_data:
+                            monitor_data["temperature"] = temp_data.get("temperature")
+                            monitor_data["status_flags"] = temp_data.get("status_flags", {})
+                            monitor_data["status_raw"] = temp_data.get("status_raw")
+                            monitor_data["raw_response"] = f"PRI:{monitor_data.get('raw_response', '')}|TEMP:{temp_data.get('raw_response', '')}"
+                        else:
+                            log("WARN", f"Could not get temp data from {temp_port_id} during ramp.")
+                    else:
+                        log("WARN", f"Mapped temp port {temp_port_id} invalid during ramp.")
+                database.save_monitor_data(port_id, monitor_data) # Save immediately (combined or not)
 
             elif cmd_type == "RESET":
                 command_str_for_log = "RESET"
