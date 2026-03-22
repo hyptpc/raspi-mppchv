@@ -3,7 +3,7 @@
 Main application file supporting multiple device types (serial and VISA)
 dynamically loaded from a unified YAML configuration.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -12,7 +12,6 @@ import threading
 from contextlib import asynccontextmanager
 import argparse
 import yaml
-import os
 import sys
 from datetime import datetime, timedelta
 
@@ -29,7 +28,7 @@ from modules.kikusui_module import KikusuiCommunicator
 
 
 # --- 1. Pre-load config for API routes ---
-_config_path = "config/config.yaml" # Default path
+_config_path = "config/config.yaml"  # Default path
 if "--config" in sys.argv:
     try:
         _config_path = sys.argv[sys.argv.index("--config") + 1]
@@ -50,9 +49,8 @@ SERVER_FETCH_MINUTES = DISPLAY_WINDOW_MINUTES + 5
 
 config = None # This global config will be loaded by __main__ for lifespan
 port_labels = {}
-
-# --- Define the command queue globally ---
 command_queue = Queue()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,11 +96,37 @@ app = FastAPI(
 # Mount the static directory to serve CSS, JS, etc.
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-command_queue = Queue()
+
+def _apply_hardware_manager_settings(general: dict) -> None:
+    """Load ramp/safety settings from config general section into hardware_manager."""
+    hardware_manager.RAMP_VOLTAGE_TARGET_V_PER_S = float(
+        general.get("ramp_voltage_target_v_per_s", 5.0)
+    )
+    hardware_manager.RAMP_VOLTAGE_DEFAULT_CYCLE_S = float(
+        general.get("ramp_voltage_default_cycle_s", 0.1)
+    )
+    hardware_manager.RAMP_VOLTAGE_CYCLE_EWMA_ALPHA = float(
+        general.get("ramp_voltage_cycle_ewma_alpha", 1.0)
+    )
+    mx = general.get("ramp_voltage_max_step_v", 0.5)
+    hardware_manager.RAMP_VOLTAGE_MAX_STEP_V = None if mx is None else float(mx)
+    hardware_manager.RAMP_PAD_STEP_TO_TARGET_RATE = bool(
+        general.get("ramp_pad_step_to_target_rate", True)
+    )
+    down = general.get("ramp_voltage_down_target_v_per_s")
+    hardware_manager.RAMP_VOLTAGE_DOWN_TARGET_V_PER_S = float(down) if down is not None else None
+    hardware_manager.REQUIRE_ON_FOR_VOLTAGE_INCREASE = bool(
+        general.get("require_on_for_voltage_increase", True)
+    )
+    hardware_manager.VOLTAGE_EQ_EPSILON_V = float(general.get("voltage_eq_epsilon_v", 0.001))
+    hardware_manager.RAMP_MAX_ITERATIONS = int(general.get("ramp_max_iterations", 20000))
+    hardware_manager.RAMP_MIN_DELTA_V = float(general.get("ramp_min_delta_v", 0.001))
+
 
 class StructuredCommand(BaseModel):
-    port_id: int; command_type: str; value: float | None = None
-    ramp_steps: int | None = 10; ramp_delay_s: float | None = 0.5
+    port_id: int
+    command_type: str
+    value: float | None = None
 class RawCommand(BaseModel):
     port_id: int; command: str
 
@@ -164,22 +188,31 @@ async def get_data():
 @app.post("/serial/command", tags=["Control"])
 async def queue_structured_command(cmd: StructuredCommand):
     """Queues a structured command, validating port_id dynamically."""
-    # Validate against the actual initialized ports
     if cmd.port_id not in hardware_manager.DEVICE_PORTS:
         valid_ports = sorted(list(hardware_manager.DEVICE_PORTS.keys()))
-        return {"status": "error", "message": f"port_id is invalid. Valid ports are: {valid_ports}"}
-        
+        raise HTTPException(
+            status_code=400,
+            detail=f"port_id is invalid. Valid ports are: {valid_ports}",
+        )
+
     cmd_type = cmd.command_type.upper()
-    
-    # --- MODIFIED ---
-    # Relax validation: The worker thread will now be responsible
-    # for checking if a command is supported by a specific device.
-    # We only check for commands that require a 'value'.
-    
-    if cmd_type in ["SET_VOLTAGE", "RAMP_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"] and cmd.value is None:
-        return {"status": "error", "message": "A 'value' is required for this command."}
-    
-    task = {"port_id": cmd.port_id, "command_info": cmd.dict()}
+
+    if cmd_type == "RAMP_VOLTAGE":
+        raise HTTPException(
+            status_code=422,
+            detail="RAMP_VOLTAGE is removed; use SET_VOLTAGE (adaptive ramp).",
+        )
+
+    if cmd_type in ["SET_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"] and cmd.value is None:
+        raise HTTPException(status_code=400, detail="A 'value' is required for this command.")
+
+    if cmd_type == "SET_VOLTAGE":
+        pre_err = hardware_manager.api_precheck_set_voltage(cmd.port_id, float(cmd.value))
+        if pre_err:
+            raise HTTPException(status_code=422, detail=pre_err)
+
+    command_info = {"command_type": cmd_type, "value": cmd.value}
+    task = {"port_id": cmd.port_id, "command_info": command_info}
     command_queue.put(task)
     log("INFO", f"Queued command: {task}")
     return {"status": "success", "message": f"Command '{cmd_type}' for port {cmd.port_id} queued."}
@@ -189,9 +222,12 @@ async def queue_raw_command(cmd: RawCommand):
     """Queues a raw command string, validating port_id dynamically."""
     if cmd.port_id not in hardware_manager.DEVICE_PORTS:
         valid_ports = sorted(list(hardware_manager.DEVICE_PORTS.keys()))
-        return {"status": "error", "message": f"port_id is invalid. Valid ports are: {valid_ports}"}
+        raise HTTPException(
+            status_code=400,
+            detail=f"port_id is invalid. Valid ports are: {valid_ports}",
+        )
     if not cmd.command:
-        return {"status": "error", "message": "Raw command cannot be empty."}
+        raise HTTPException(status_code=400, detail="Raw command cannot be empty.")
     
     task = {"port_id": cmd.port_id, "command_info": {"command_type": "RAW", "raw_command": cmd.command}}
     command_queue.put(task)
@@ -211,6 +247,8 @@ if __name__ == "__main__":
         log("INFO", f"Loaded config from: {args.config}")
     except Exception as e:
         log("ERROR", f"Failed to read/parse config file {args.config}: {e}"); exit(1)
+
+    _apply_hardware_manager_settings(config.get("general", {}))
 
     # Initialize Database Connections
     db_config = config.get('databases', {})
@@ -297,7 +335,21 @@ if __name__ == "__main__":
         except Exception as e:
             log("ERROR", f"Error initializing communicator for config {device_config}: {e}")
             initialization_ok = False
-            
+
+    hardware_manager.PORT_VOLTAGE_LIMITS_V.clear()
+    for device_config in configured_devices:
+        if not isinstance(device_config, dict):
+            continue
+        try:
+            pid = int(device_config.get("id"))
+        except (TypeError, ValueError):
+            continue
+        mx = device_config.get("max_voltage_v")
+        if mx is not None:
+            hardware_manager.PORT_VOLTAGE_LIMITS_V[pid] = float(mx)
+    if hardware_manager.PORT_VOLTAGE_LIMITS_V:
+        log("INFO", f"Per-channel max_voltage_v (V): {hardware_manager.PORT_VOLTAGE_LIMITS_V}")
+
     # Test mode fallback: create mock objects for both types
     if is_test_mode:
         # Check config to decide which mocks to create

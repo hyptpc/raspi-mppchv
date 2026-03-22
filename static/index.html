@@ -19,8 +19,7 @@
                     <label for="command_type">Command</label>
                     <select id="command_type" onchange="toggleValueInput()">
                         <option value="MONITOR">MONITOR</option>
-                        <option value="SET_VOLTAGE">SET_VOLTAGE (Instant)</option>
-                        <option value="RAMP_VOLTAGE">RAMP_VOLTAGE (Gradual)</option>
+                        <option value="SET_VOLTAGE">SET_VOLTAGE (ramp)</option>
                         <option value="TURN_ON">TURN_ON</option>
                         <option value="TURN_OFF">TURN_OFF</option>
                         <option value="RESET">RESET</option>
@@ -35,11 +34,6 @@
                         <label id="value-label" for="value">Value</label>
                         <input type="number" id="value" step="any">
                     </div>
-                    <fieldset id="ramp-options" style="display:none;">
-                        <legend>Ramp Options</legend>
-                        <div class="form-group"><label for="ramp_steps">Steps</label><input type="number" id="ramp_steps" value="20" min="1"></div>
-                        <div class="form-group"><label for="ramp_delay_s">Delay (s)</label><input type="number" id="ramp_delay_s" value="0.5" step="0.1" min="0.1"></div>
-                    </fieldset>
                 </div>
                 <button onclick="sendStructuredCommand()">Send</button>
                 <hr style="margin: 15px 0;">

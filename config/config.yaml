@@ -1,0 +1,53 @@
+# MPPC HV controller — edit this file for your deployment (default path: config/config.yaml).
+
+general:
+  # Background MONITOR period (s) and chart window (minutes).
+  monitoring_interval: 10
+  display_time_window_minutes: 10
+
+  # SET_VOLTAGE uses an adaptive ramp toward ~ramp_voltage_target_v_per_s (V/s).
+  ramp_voltage_target_v_per_s: 5.0
+  ramp_voltage_default_cycle_s: 0.1
+  ramp_voltage_cycle_ewma_alpha: 1.0
+  ramp_voltage_max_step_v: 0.5
+  ramp_pad_step_to_target_rate: true
+  # ramp_voltage_down_target_v_per_s: 3.0
+
+  # Refuse voltage increases when output is off; “same voltage” tolerance (V).
+  require_on_for_voltage_increase: true
+  voltage_eq_epsilon_v: 0.001
+  ramp_max_iterations: 20000
+  ramp_min_delta_v: 0.001
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+devices:
+  # kikusui_visa → connection is the supply IP. serial_hv → device path (e.g. /dev/ttyUSB0).
+  # Optional max_voltage_v: SET_VOLTAGE cannot command above this (per channel). Omit = no software cap.
+  - id: 0
+    type: kikusui_visa
+    connection: "192.168.1.100"
+    # max_voltage_v: 85.0
+
+  - id: 1
+    type: serial_hv
+    connection: "/dev/ttyUSB0"
+
+# Map primary device id → serial temp-sensor id for merged MONITOR rows; {} if unused.
+device_mappings: {}
+
+# Names in the web UI (ids 0–3 are sent to the browser).
+port_labels:
+  0: "HV0"
+  1: "HV1"
+
+# SQLite under db_directory: measurements{suffix}.db, action_log{suffix}.db
+databases:
+  db_directory: "data"
+  db_suffix: ""
+
+# true = mock hardware; false = open real devices listed above.
+test_mode:
+  enabled: true

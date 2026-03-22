@@ -1,3 +1,4 @@
+# Python 3.11+ (PEP 604 union types: float | None, etc.)
 fastapi
 uvicorn[standard]
 sqlalchemy

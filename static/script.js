@@ -82,35 +82,25 @@ function populatePortSelectorsAndLabels() {
  */
 function toggleValueInput() {
     const commandType = document.getElementById('command_type').value;
-    // --- MODIFIED: Use correct ID 'value-controls' ---
-    const valueControls = document.getElementById('value-controls'); // Target the generic value div
-    const rampOptions = document.getElementById('ramp-options');
-    // --- ADDED: Get label and input elements ---
-    const valueLabel = document.getElementById('value-label');     // Target the label inside value-controls
-    const valueInput = document.getElementById('value');         // Target the input inside value-controls
-    // --- END ADDITION ---
+    const valueControls = document.getElementById('value-controls');
+    const valueLabel = document.getElementById('value-label');
+    const valueInput = document.getElementById('value');
 
-    // --- MODIFIED: Include Kikusui commands needing a value ---
     const needsValueCommands = [
-        'SET_VOLTAGE', 'RAMP_VOLTAGE', 'SET_CURRENT', 'ENABLE_OCP'
+        'SET_VOLTAGE', 'SET_CURRENT', 'ENABLE_OCP'
     ];
-    // --- END MODIFICATION ---
 
     if (needsValueCommands.includes(commandType)) {
         valueControls.style.display = 'block';
-        // --- ADDED: Logic to change label and step ---
-        if (commandType === 'SET_VOLTAGE' || commandType === 'RAMP_VOLTAGE') {
+        if (commandType === 'SET_VOLTAGE') {
             valueLabel.textContent = 'Target Voltage (V)';
             valueInput.step = '0.1';
         } else if (commandType === 'SET_CURRENT' || commandType === 'ENABLE_OCP') {
             valueLabel.textContent = (commandType === 'SET_CURRENT') ? 'Target Current (A)' : 'OCP Trip Current (A)';
-            valueInput.step = '0.001'; // Example step for Amps
+            valueInput.step = '0.001';
         }
-        // --- END ADDITION ---
-        rampOptions.style.display = (commandType === 'RAMP_VOLTAGE') ? 'block' : 'none';
     } else {
         valueControls.style.display = 'none';
-        rampOptions.style.display = 'none';
     }
 }
 
@@ -125,34 +115,35 @@ async function sendStructuredCommand() {
     const payload = {
         port_id: portId,
         command_type: commandType,
-        value: null, // Initialize
-        ramp_steps: null,
-        ramp_delay_s: null
+        value: null,
      };
 
-    // --- MODIFIED: Include Kikusui commands needing a value ---
     const needsValueCommands = [
-        'SET_VOLTAGE', 'RAMP_VOLTAGE', 'SET_CURRENT', 'ENABLE_OCP'
+        'SET_VOLTAGE', 'SET_CURRENT', 'ENABLE_OCP'
     ];
-    // --- END MODIFICATION ---
 
     if (needsValueCommands.includes(commandType)) {
-        // --- MODIFIED: Use correct ID 'value' ---
         const valueInput = document.getElementById('value');
-        // --- END MODIFICATION ---
         if (!valueInput.value) {
-            showNotification(`Please enter a target value for ${commandType}.`, 'error'); // Use showNotification
+            showNotification(`Please enter a target value for ${commandType}.`, 'error');
             return;
         }
         payload.value = parseFloat(valueInput.value);
     }
-    if (commandType === 'RAMP_VOLTAGE') {
-        payload.ramp_steps = parseInt(document.getElementById('ramp_steps').value);
-        payload.ramp_delay_s = parseFloat(document.getElementById('ramp_delay_s').value);
-    }
     try {
         const response = await fetch('/serial/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error(`Server error: ${response.status} ${await response.text()}`); // Include text
+        if (!response.ok) {
+            let detail = `HTTP ${response.status}`;
+            try {
+                const body = await response.json();
+                if (body.detail !== undefined) {
+                    detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+                }
+            } catch (_) {
+                try { detail = await response.text(); } catch (__) {}
+            }
+            throw new Error(detail);
+        }
         const result = await response.json();
         console.log("Command Response:", result); // Added log
         showNotification(result.message || 'Command sent!'); // Use showNotification
