@@ -123,6 +123,18 @@ def _apply_hardware_manager_settings(general: dict) -> None:
     hardware_manager.RAMP_MIN_DELTA_V = float(general.get("ramp_min_delta_v", 0.001))
 
 
+def _initialize_serial_devices() -> bool:
+    """Verify every configured serial device before the server or workers start."""
+    initialization_ok = True
+    for port_id, communicator in hardware_manager.DEVICE_PORTS.items():
+        if isinstance(communicator, SerialCommunicator):
+            response = communicator.initialize_safe_state()
+            if not response or response.startswith(b"ERROR"):
+                log("ERROR", f"Serial startup failed for port {port_id}: {response!r}")
+                initialization_ok = False
+    return initialization_ok
+
+
 class StructuredCommand(BaseModel):
     port_id: int
     command_type: str
@@ -374,8 +386,9 @@ if __name__ == "__main__":
                 hardware_manager.DEVICE_PORTS[i] = KikusuiCommunicator(mock_resource, True)
                 log("INFO", f"Using mock 'kikusui_visa' communicator for Port {i}.")
 
-    if not initialization_ok and not is_test_mode:
-        log("ERROR", "Exiting due to initialization errors in non-test mode.")
+    serial_initialization_ok = _initialize_serial_devices()
+    if not serial_initialization_ok or (not initialization_ok and not is_test_mode):
+        log("ERROR", "Exiting due to device initialization errors.")
         exit(1)
     if not hardware_manager.DEVICE_PORTS:
         log("ERROR", "No devices were configured or initialized successfully. Exiting.")

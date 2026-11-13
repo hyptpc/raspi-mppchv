@@ -24,6 +24,8 @@ class SerialCommunicator:
     # Conversion factors for parsing HPO response
     CONV_FACTOR_VOLT = 1.812e-3
     CONV_FACTOR_CURR = 4.980e-3
+    SAFE_BASE_VOLTAGE_V = 20.5
+    SAFE_BASE_TEMPERATURE_C = 25.0
     
     def __init__(self, port_name: str, is_test_mode: bool):
         self.port_name = port_name
@@ -136,6 +138,54 @@ class SerialCommunicator:
             # Handle potential communication errors (e.g., device disconnected)
             log("ERROR", f"[Serial] [{self.port_name}] Serial communication error: {e}")
             return b"ERROR:SERIAL_COMM_FAILED"
+
+    def initialize_safe_state(self) -> bytes:
+        """Leave output/correction OFF and persist zero coefficients with low base values.
+
+        K29-B61218K sections 4-1/4-2: HST/HRT contain six ASCII hex words,
+        ordered high/low quadratic, high/low linear, Vb, Tb. HST is persistent.
+        """
+        if self.is_test_mode:
+            log("MOCK", f"[Serial] [{self.port_name}] Simulating safe startup")
+            return b"OK_SAFE_INITIALIZED_MOCK"
+
+        def request(command):
+            response = self._send_and_receive(command)
+            if not response or response.startswith(b"ERROR"):
+                raise RuntimeError(f"{command[:3].decode('ascii')} failed: {response!r}")
+            return response
+
+        def verify_off():
+            status = int(request(b"HGS")[4:8], 16)
+            if status & ((1 << 0) | (1 << 6)):
+                raise RuntimeError(f"Output or temperature correction is ON: {status:04X}")
+
+        try:
+            request(b"HOF")
+            request(b"HCM0")
+            # Verify OFF before any persistent parameter write.
+            verify_off()
+            parameters = request(b"HRT")[4:28]
+            vb = int(self.SAFE_BASE_VOLTAGE_V / self.CONV_FACTOR_VOLT)
+            tb = int((1.035 - self.SAFE_BASE_TEMPERATURE_C * 5.5e-3) / 1.907e-5)
+            target = b"0000" * 4 + f"{vb:04X}{tb:04X}".encode('ascii')
+            if parameters.upper() != target:
+                log("INFO", f"[Serial] [{self.port_name}] Saving zero coefficients, Vb=20.5 V, Tb=25 C")
+                request(b"HST" + target)
+                if request(b"HRT")[4:28].upper() != target:
+                    raise RuntimeError("Persistent parameter readback mismatch")
+            verify_off()
+            log("INFO", f"[Serial] [{self.port_name}] Startup verified: output OFF, correction OFF")
+            return b"OK_SAFE_INITIALIZED"
+        except Exception as error:
+            log("ERROR", f"[Serial] [{self.port_name}] Safe startup failed: {error}")
+            try:
+                off_response = self._send_and_receive(b"HOF")
+                if not off_response or off_response.startswith(b"ERROR"):
+                    log("ERROR", f"[Serial] [{self.port_name}] Fallback OFF failed: {off_response!r}")
+            except Exception as off_error:
+                log("ERROR", f"[Serial] [{self.port_name}] Fallback OFF raised: {off_error}")
+            return f"ERROR:SAFE_INITIALIZATION:{error}".encode('utf-8', errors='replace')
 
     def _generate_mock_monitor_data(self) -> dict:
         """Generates a realistic dictionary of mock data for testing."""

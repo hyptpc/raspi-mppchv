@@ -102,6 +102,22 @@ raspi-mppchv/
     * Access command history via the "View Action Log" link.
 
 
+## Serial startup
+
+Before starting the server and command worker, each serial HV device receives `HOF`
+and `HCM0`. Startup verifies output OFF and correction OFF with `HGS`, then reads
+the six parameter words with `HRT`.
+
+If needed, `HST` persistently sets all four temperature coefficients to zero,
+the base voltage to approximately 20.5 V, and the base temperature to approximately
+25 °C. Startup reads back changed parameters and checks OFF status again. Matching
+parameters skip the persistent write. Any failure triggers another OFF attempt
+and prevents server startup. Test mode simulates initialization without serial I/O.
+
+The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
+Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
+output OFF before communication is established.
+
 ## Measurement units
 
 Measured current is stored and displayed in mA for both serial and Kikusui devices.
