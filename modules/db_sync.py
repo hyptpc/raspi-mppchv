@@ -66,9 +66,7 @@ def main(argv=None):
     parser.add_argument('--config', default='config/config.yaml')
     parser.add_argument('--destination', help='Override database_sync.destination_directory')
     parser.add_argument('--suffix', help='Override databases.db_suffix, e.g. a run selected with --new-db')
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--once', action='store_true', help='Copy once (default)')
-    mode.add_argument('--watch', action='store_true', help='Repeat; reload config before each copy')
+    parser.add_argument('--once', action='store_true', help='Copy once instead of repeating')
     parser.add_argument('--interval', type=float, help='Override database_sync.interval_seconds')
     parser.add_argument('--dry-run', action='store_true', help='Show paths without opening or copying databases')
     args = parser.parse_args(argv)
@@ -97,18 +95,19 @@ def main(argv=None):
                                       'destination': {k: str(v) for k, v in targets.items()},
                                       'interval_seconds': interval}, indent=2))
                     return 0
+            except (OSError, ValueError, TypeError, AttributeError, yaml.YAMLError) as error:
+                print(f'Database sync configuration error: {error}', file=sys.stderr, flush=True)
+                return 1
+            try:
                 copied = sync_database_pair(directory, suffix, destination)
                 print(json.dumps({'time': datetime.now().isoformat(),
                                   'copied': {k: str(v) for k, v in copied.items()}}, ensure_ascii=False), flush=True)
-                if not args.watch:
-                    return 0
-            except (OSError, ValueError, TypeError, AttributeError, sqlite3.Error, yaml.YAMLError) as error:
+            except (OSError, ValueError, sqlite3.Error) as error:
                 print(f'Database sync failed: {error}', file=sys.stderr, flush=True)
-                if not args.watch:
+                if args.once:
                     return 1
-                # Invalid configuration must not turn the watch loop into a busy loop.
-                if not math.isfinite(interval) or interval <= 0:
-                    interval = 5.0
+            if args.once:
+                return 0
             time.sleep(interval)
     except KeyboardInterrupt:
         return 0

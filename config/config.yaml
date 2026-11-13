@@ -48,7 +48,7 @@ databases:
   db_directory: "data"
   db_suffix: ""
 
-# Optional standalone helper: ./sync_db.sh --once or --watch.
+# Optional standalone helper: ./sync_db.sh --config config/config.yaml (Ctrl+C to stop).
 # The app never starts syncing automatically. Leave the destination empty if unused.
 database_sync:
   destination_directory: ""

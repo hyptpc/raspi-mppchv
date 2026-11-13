@@ -142,8 +142,8 @@ database_sync:
 
 ```bash
 ./sync_db.sh --config config/config.yaml --dry-run  # Preview both source/target paths
-./sync_db.sh --config config/config.yaml --once     # Copy both databases once (default)
-./sync_db.sh --config config/config.yaml --watch    # Repeat until Ctrl+C; reload config each cycle
+./sync_db.sh --config config/config.yaml            # Repeat until Ctrl+C; reload config each cycle
+./sync_db.sh --config config/config.yaml --once     # Optional single copy
 ./sync_db.sh --config config/config.yaml --destination /some/other/folder --suffix run002 --once
 ```
 

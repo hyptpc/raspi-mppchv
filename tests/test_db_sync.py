@@ -160,7 +160,7 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(plan['source']['action_log'], str(self.source / 'action_log_run001.db'))
         self.assertFalse(self.destination.exists())
 
-    def test_watch_reloads_suffix_and_interval_from_config(self):
+    def test_default_run_reloads_suffix_and_interval_from_config(self):
         self.make_pair('run002')
         sleeps = []
 
@@ -172,13 +172,13 @@ class DatabaseSyncTests(unittest.TestCase):
                 raise KeyboardInterrupt()
 
         with patch.object(db_sync.time, 'sleep', side_effect=next_cycle), redirect_stdout(io.StringIO()):
-            self.assertEqual(db_sync.main(['--config', str(self.config), '--watch']), 0)
+            self.assertEqual(db_sync.main(['--config', str(self.config)]), 0)
         self.assertEqual(sleeps, [5.0, 7.0])
         for suffix in ('run001', 'run002'):
             self.assertTrue((self.destination / f'measurements_{suffix}.db').exists())
             self.assertTrue((self.destination / f'action_log_{suffix}.db').exists())
 
-    def test_watch_recovers_from_temporary_copy_failure(self):
+    def test_default_run_recovers_from_temporary_copy_failure(self):
         backup = db_sync.sync_database_pair
         attempts = []
 
@@ -198,7 +198,7 @@ class DatabaseSyncTests(unittest.TestCase):
         with patch.object(db_sync, 'sync_database_pair', side_effect=retry), \
                 patch.object(db_sync.time, 'sleep', side_effect=next_cycle), \
                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            self.assertEqual(db_sync.main(['--config', str(self.config), '--watch']), 0)
+            self.assertEqual(db_sync.main(['--config', str(self.config)]), 0)
         self.assertEqual(len(attempts), 2)
         self.assertTrue((self.destination / 'measurements_run001.db').exists())
 
