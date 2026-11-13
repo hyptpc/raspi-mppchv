@@ -227,27 +227,8 @@ class SerialCommunicator:
         return self._send_and_receive(b"HOF")
 
     def reset_device(self):
-        """Sends HRE (Reset), waits, sends HOF (HV OFF), and returns combined responses."""
-        if self.is_test_mode:
-            log("MOCK", f"[Serial] [{self.port_name}] Simulating RESET followed by HV OFF")
-            time.sleep(0.6)
-            return b"hre_ok|hof_ok|hcm0_ok" 
-
-        # reset
-        reset_response = self._send_and_receive(b"HRE")
-        log("INFO", f"[Serial] [{self.port_name}] Device reset. Response: {reset_response}. Waiting...")
-        time.sleep(0.2) 
-
-        # HV off
-        off_response = self._send_and_receive(b"HOF")
-        log("INFO", f"[Serial] [{self.port_name}] HV OFF after reset. Response: {off_response}")
-
-        # turn off temp. corr.
-        hcm_response = self._send_and_receive(b"HCM0")
-        log("INFO", f"[Serial] [{self.port_name}] Temp Corr OFF after reset. Response: {hcm_response}")
-
-        combined_response = reset_response.strip() + b" | " + off_response.strip() + b" | " + hcm_response.strip()
-        return combined_response
+        """Reset to verified OFF settings without HRE, which enables HV output."""
+        return self.initialize_safe_state()
 
     def send_raw_command(self, command_str: str):
         """Sends a user-provided raw command string (e.g., "HCM1")."""

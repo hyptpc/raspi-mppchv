@@ -203,5 +203,62 @@ class SerialStartupTests(unittest.TestCase):
                         self.assertEqual(transport.status & 0x41, 0)
 
 
+class EndOfTasks(Exception):
+    pass
+
+
+class SerialResetTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch('modules.hamahoto_module.time.sleep')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.transport = SimulatedSerial(SAFE_PARAMETERS)
+        self.communicator = SerialCommunicator('/dev/mockHV', is_test_mode=True)
+        self.communicator.is_test_mode = False
+        self.communicator.ser = self.transport
+
+    def test_reset_leaves_output_and_correction_off_without_hardware_reset(self):
+        self.assertEqual(self.communicator.reset_device(), b'OK_SAFE_INITIALIZED')
+        self.assertEqual(self.transport.status & 0x41, 0)
+        self.assertEqual(self.transport.commands, [b'HOF', b'HCM0', b'HGS', b'HRT', b'HGS'])
+
+    def test_reset_restores_safe_parameters_only_when_needed(self):
+        self.transport.parameters = OLD_PARAMETERS
+        self.assertEqual(self.communicator.reset_device(), b'OK_SAFE_INITIALIZED')
+        self.assertEqual(self.transport.parameters, SAFE_PARAMETERS)
+        self.assertEqual(self.transport.commands, [
+            b'HOF', b'HCM0', b'HGS', b'HRT', b'HST' + SAFE_PARAMETERS, b'HRT', b'HGS',
+        ])
+
+    def test_failed_reset_attempts_off_and_returns_error(self):
+        self.transport.stuck_correction = True
+        self.assertTrue(self.communicator.reset_device().startswith(b'ERROR:'))
+        self.assertEqual(self.transport.commands, [b'HOF', b'HCM0', b'HGS', b'HOF'])
+
+    def test_worker_records_reset_failure_and_processes_next_command(self):
+        self.transport.stuck_correction = True
+        queue = Mock()
+        queue.get.side_effect = [
+            {'port_id': 1, 'command_info': {'command_type': 'RESET'}},
+            {'port_id': 1, 'command_info': {'command_type': 'RAW', 'raw_command': 'HOF'}},
+            EndOfTasks(),
+        ]
+        with patch.dict(hardware_manager.DEVICE_PORTS, {1: self.communicator}, clear=True), \
+                patch.object(db_logs, 'save_action_log') as action_log:
+            with self.assertRaises(EndOfTasks):
+                hardware_manager.worker(queue)
+        first, second = action_log.call_args_list
+        self.assertEqual(first.args[1], 'RESET')
+        self.assertTrue(first.args[2].startswith(b'ERROR:'))
+        self.assertEqual(second.args[1], 'RAW: HOF')
+        self.assertEqual(queue.task_done.call_count, 2)
+        self.assertNotIn(b'HRE', self.transport.commands)
+
+    def test_mock_reset_does_not_access_serial_hardware(self):
+        communicator = SerialCommunicator('/dev/mockHV', is_test_mode=True)
+        with patch.object(communicator, '_send_and_receive', side_effect=AssertionError('hardware access')):
+            self.assertEqual(communicator.reset_device(), b'OK_SAFE_INITIALIZED_MOCK')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -114,6 +114,10 @@ the base voltage to approximately 20.5 V, and the base temperature to approximat
 parameters skip the persistent write. Any failure triggers another OFF attempt
 and prevents server startup. Test mode simulates initialization without serial I/O.
 
+For serial devices, `RESET` repeats this OFF and parameter-verification procedure.
+It does not send `HRE` or enable HV output. Reset failures are recorded in the
+action log, and existing matching parameters skip persistent writes.
+
 The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
 Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
 output OFF before communication is established.
