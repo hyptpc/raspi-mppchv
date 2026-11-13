@@ -54,10 +54,9 @@ raspi-mppchv/
         * Change `server.host` and `server.port` if necessary.
 
 5.  **Initialize Databases:**
-    Run these commands once to create the database files in the `data/` directory:
+    Create a new named database pair without connecting to hardware:
     ```bash
-    python modules/db_measurements.py
-    python modules/db_logs.py
+    python main.py --new-db run001 --init-db-only
     ```
 
 ## Usage ▶️
@@ -101,6 +100,19 @@ raspi-mppchv/
     * Access historical monitoring data via the "View Raw Data Log" link.
     * Access command history via the "View Action Log" link.
 
+
+## Database runs
+
+```bash
+python main.py --new-db                    # Create a pair with a date/identifier and start
+python main.py --new-db run001             # Create a named pair and start
+python main.py --new-db run001 --init-db-only  # Create schemas without hardware or server
+```
+
+Files are created under `databases.db_directory`. Named runs refuse either existing
+file rather than overwriting or resuming it. The selected suffix and paths are logged.
+To resume a run, set `databases.db_suffix` to its suffix and start without `--new-db`.
+`--init-db-only` can also initialize the configured pair without starting hardware.
 
 ## Serial startup
 

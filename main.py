@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from modules import db_measurements as database
 from modules import db_logs as log_database
 from modules.logger import log
+from modules.db_runs import create_fresh_database_pair
 
 # --- Import Worker/Monitor functions and shared resources ---
 from modules import hardware_manager
@@ -258,6 +259,10 @@ async def queue_raw_command(cmd: RawCommand):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MPPC HV Controller Server")
     parser.add_argument("--config", type=str, default="config/config.yaml", help="Path to config file")
+    parser.add_argument("--new-db", nargs='?', const='', default=None,
+                        metavar='NAME', help="Create a fresh DB pair; omit NAME for an automatic identifier")
+    parser.add_argument("--init-db-only", action='store_true',
+                        help="Initialize databases and exit without hardware connections or server startup")
     args = parser.parse_args()
 
     # Read configuration file
@@ -275,6 +280,10 @@ if __name__ == "__main__":
     db_directory = db_config.get('db_directory', 'data')
     db_suffix = db_config.get('db_suffix', '')
     try:
+        if args.new_db is not None:
+            db_suffix = create_fresh_database_pair(db_directory, args.new_db)
+            db_config['db_suffix'] = db_suffix
+        log("INFO", f"Selected database suffix: {db_suffix!r}")
         database.init_database_connection(db_directory, suffix=db_suffix)
         log("INFO", f"Measurements DB connection initialized: {db_directory}/measurements{'_' if db_suffix else ''}{db_suffix}.db")
         database.init_db()
@@ -283,6 +292,13 @@ if __name__ == "__main__":
         log_database.init_db()
     except Exception as e:
         log("ERROR", f"Failed to initialize databases in '{db_directory}': {e}"); exit(1)
+
+    if args.init_db_only:
+        if database.engine is not None:
+            database.engine.dispose()
+        if log_database.engine is not None:
+            log_database.engine.dispose()
+        sys.exit(0)
     
     # Apply global settings
     is_test_mode = config.get('test_mode', {}).get('enabled', True)
