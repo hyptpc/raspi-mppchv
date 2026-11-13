@@ -97,7 +97,7 @@ class KikusuiCommunicator:
         mock_data = {
             "is_on": mock_is_on,
             "voltage": round(random.uniform(65.0, 75.0), 3) if mock_is_on else 0.0,
-            "current": round(random.uniform(0.01, 0.1), 3) if mock_is_on else 0.0,
+            "current": round(random.uniform(0.01, 0.1), 3) if mock_is_on else 0.0, # mA
             "status_info": mock_status_info,
             "raw_response": "mock data"
         }
@@ -187,7 +187,7 @@ class KikusuiCommunicator:
     def monitor(self) -> dict:
         """
         Fetches measurements and status, including CC mode and OCP trip events.
-        This is the source of HV data (V, I, Status).
+        Returns voltage in V and measured current in mA for the shared DB/UI.
         """
         if self.is_test_mode:
             return self._generate_mock_monitor_data()
@@ -221,7 +221,8 @@ class KikusuiCommunicator:
             # --- END MODIFIED SECTION ---
 
             voltage = float(voltage_str)
-            current = float(current_str)
+            # SCPI reports A; convert to the shared mA unit before rounding.
+            current_ma = float(current_str) * 1000.0
             is_on = (status_str == '1')
             
             operation_cond = int(operation_cond_str)
@@ -239,7 +240,7 @@ class KikusuiCommunicator:
             return {
                 "is_on": is_on,
                 "voltage": round(voltage, 3),
-                "current": round(current, 3),
+                "current": round(current_ma, 3),
                 "status_info": {
                     "is_cc_mode": is_cc_mode,
                     "has_ocp_tripped": has_ocp_tripped

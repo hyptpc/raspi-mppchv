@@ -29,7 +29,7 @@ class Measurement(Base):
 
     # --- Common Fields ---
     voltage = Column(Float, nullable=True)
-    current = Column(Float, nullable=True)
+    current = Column(Float, nullable=True) # mA; converted by the device adapter
     is_hv_on = Column(Boolean, nullable=True) # Common status flag
     raw_response = Column(String, nullable=True) # Raw string for debugging
 

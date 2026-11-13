@@ -102,6 +102,16 @@ raspi-mppchv/
     * Access command history via the "View Action Log" link.
 
 
+## Measurement units
+
+Measured current is stored and displayed in mA for both serial and Kikusui devices.
+Kikusui current readings are converted from A to mA before rounding. Current and OCP
+setpoints still use A.
+
+Existing Kikusui measurement rows retain their original values in A. Before collecting
+Kikusui data with this change, select an unused `databases.db_suffix` to create fresh
+databases and avoid mixing units with historical measurements.
+
 ## Dependencies 📦
 
 * FastAPI: Web framework
