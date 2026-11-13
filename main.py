@@ -244,6 +244,10 @@ async def queue_raw_command(cmd: RawCommand):
         )
     if not cmd.command:
         raise HTTPException(status_code=400, detail="Raw command cannot be empty.")
+
+    error = hardware_manager.DEVICE_PORTS[cmd.port_id].validate_raw_command(cmd.command)
+    if error:
+        raise HTTPException(status_code=422, detail=error)
     
     task = {"port_id": cmd.port_id, "command_info": {"command_type": "RAW", "raw_command": cmd.command}}
     command_queue.put(task)

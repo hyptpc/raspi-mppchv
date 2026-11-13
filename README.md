@@ -122,6 +122,17 @@ The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
 Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
 output OFF before communication is established.
 
+## Raw commands
+
+Serial raw commands are limited to `HRT`, `HPO`, `HGS`, `HGV`, `HGC`, `HGT`, and
+`HOF`. Configuration changes, ON, and hardware reset commands are rejected.
+
+Kikusui raw commands are limited to `*IDN?`, `MEAS:VOLT?`, `MEAS:CURR?`,
+`OUTP?` / `OUTP:STAT?`, `STAT:OPER:COND?`, and `STAT:QUES:EVEN?`, plus their
+fully spelled forms. Query responses are read and recorded in the action log.
+Raw commands ignore case and surrounding whitespace; compound commands are rejected.
+Both the API and device adapters enforce these restrictions.
+
 ## Measurement units
 
 Measured current is stored and displayed in mA for both serial and Kikusui devices.

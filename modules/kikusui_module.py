@@ -21,6 +21,21 @@ class KikusuiCommunicator:
     # From the STATus:QUEStionable register
     # Bit 4: OCP (1 = OCP has tripped)
     OCP_TRIP_BIT = 4
+    RAW_QUERIES = {
+        '*IDN?': '*IDN?',
+        'MEAS:VOLT?': 'MEASure:VOLTage?',
+        'MEASURE:VOLTAGE?': 'MEASure:VOLTage?',
+        'MEAS:CURR?': 'MEASure:CURRent?',
+        'MEASURE:CURRENT?': 'MEASure:CURRent?',
+        'OUTP?': 'OUTPut:STATe?',
+        'OUTPUT?': 'OUTPut:STATe?',
+        'OUTP:STAT?': 'OUTPut:STATe?',
+        'OUTPUT:STATE?': 'OUTPut:STATe?',
+        'STAT:OPER:COND?': 'STATus:OPERation:CONDition?',
+        'STATUS:OPERATION:CONDITION?': 'STATus:OPERation:CONDition?',
+        'STAT:QUES:EVEN?': 'STATus:QUEStionable:EVENt?',
+        'STATUS:QUESTIONABLE:EVENT?': 'STATus:QUEStionable:EVENt?',
+    }
 
     """Handles low-level PyVISA communication for a single KIKUSUI device."""
     
@@ -128,15 +143,22 @@ class KikusuiCommunicator:
         # Reset and clear can be combined in a single write.
         return self._write("*RST; *CLS")
 
+    @classmethod
+    def validate_raw_command(cls, command_str: str) -> str | None:
+        if command_str.strip().upper() not in cls.RAW_QUERIES:
+            return "Only approved identification, measurement, and status queries are allowed."
+        return None
+
     def send_raw_command(self, command_str: str):
-        """
-        Sends a user-provided raw SCPI command.
-        This is a 'write' operation. For queries, use a specific method.
-        """
+        """Execute an approved query and consume its response."""
+        error = self.validate_raw_command(command_str)
+        if error:
+            return f"ERROR:RAW_COMMAND_NOT_ALLOWED:{error}".encode('ascii')
+        command_str = self.RAW_QUERIES[command_str.strip().upper()]
         if self.is_test_mode:
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating RAW command: {command_str}")
             return b"OK_RAW"
-        return self._write(command_str)
+        return self._query(command_str)
 
     def set_voltage(self, voltage: float):
         """Sends the SOURce:VOLTage command to set the output voltage."""

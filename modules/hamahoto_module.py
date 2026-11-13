@@ -26,6 +26,7 @@ class SerialCommunicator:
     CONV_FACTOR_CURR = 4.980e-3
     SAFE_BASE_VOLTAGE_V = 20.5
     SAFE_BASE_TEMPERATURE_C = 25.0
+    RAW_COMMANDS = frozenset({"HRT", "HPO", "HGS", "HGV", "HGC", "HGT", "HOF"})
     
     def __init__(self, port_name: str, is_test_mode: bool):
         self.port_name = port_name
@@ -98,6 +99,7 @@ class SerialCommunicator:
 
         # Fixed numeric payloads used for monitoring and the compensation interlock.
         payload_lengths = {b'hpo': 20, b'hgs': 4, b'hrt': 24,
+                           b'hgv': 4, b'hgc': 4, b'hgt': 4,
                            b'hof': 0, b'hon': 0, b'hre': 0,
                            b'hcm': 0, b'hbv': 0, b'hst': 0}
         expected_length = payload_lengths.get(response_command)
@@ -230,8 +232,18 @@ class SerialCommunicator:
         """Reset to verified OFF settings without HRE, which enables HV output."""
         return self.initialize_safe_state()
 
+    @classmethod
+    def validate_raw_command(cls, command_str: str) -> str | None:
+        if command_str.strip().upper() not in cls.RAW_COMMANDS:
+            return "Only HRT, HPO, HGS, HGV, HGC, HGT, and HOF are allowed as raw commands."
+        return None
+
     def send_raw_command(self, command_str: str):
-        """Sends a user-provided raw command string (e.g., "HCM1")."""
+        """Send an approved query or OFF command; never bypass output protection."""
+        error = self.validate_raw_command(command_str)
+        if error:
+            return f"ERROR:RAW_COMMAND_NOT_ALLOWED:{error}".encode('ascii')
+        command_str = command_str.strip().upper()
         if self.is_test_mode:
             log("MOCK", f"[Serial] [{self.port_name}] Simulating RAW command: {command_str}")
             return b"raw_ok"
