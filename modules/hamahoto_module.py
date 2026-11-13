@@ -224,8 +224,35 @@ class SerialCommunicator:
     # --- High-level device commands (Common Interface) ---
     
     def turn_on(self):
-        """Sends the HON (HV ON) command."""
-        return self._send_and_receive(b"HON")
+        """Recheck OFF/correction/parameters and start at the low base voltage."""
+        def request(command):
+            response = self._send_and_receive(command)
+            if not response or response.startswith(b"ERROR"):
+                raise RuntimeError(f"{command[:3].decode('ascii')} failed: {response!r}")
+            return response
+
+        try:
+            initialized = self.initialize_safe_state()
+            if not initialized or initialized.startswith(b"ERROR"):
+                raise RuntimeError(f"ON precheck failed: {initialized!r}")
+            # HOF does not clear a previous temporary HBV setpoint.
+            setpoint = self.set_voltage(self.SAFE_BASE_VOLTAGE_V)
+            if not setpoint or setpoint.startswith(b"ERROR"):
+                raise RuntimeError(f"Low-voltage setpoint failed: {setpoint!r}")
+            if int(request(b"HGS")[4:8], 16) & 0x41:
+                raise RuntimeError("Output or correction is ON before HON")
+            response = request(b"HON")
+            if int(request(b"HGS")[4:8], 16) & 0x41 != 1:
+                raise RuntimeError("Output ON / correction OFF verification failed")
+            return response
+        except Exception as error:
+            log("ERROR", f"[Serial] [{self.port_name}] TURN_ON failed: {error}")
+            try:
+                off_response = self.turn_off()
+                log("ERROR", f"[Serial] [{self.port_name}] OFF after failed TURN_ON: {off_response!r}")
+            except Exception as off_error:
+                log("ERROR", f"[Serial] [{self.port_name}] OFF after failed TURN_ON raised: {off_error}")
+            return f"ERROR:TURN_ON:{error}".encode('utf-8', errors='replace')
     
     def turn_off(self):
         """Sends the HOF (HV OFF) command."""

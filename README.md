@@ -118,6 +118,11 @@ For serial devices, `RESET` repeats this OFF and parameter-verification procedur
 It does not send `HRE` or enable HV output. Reset failures are recorded in the
 action log, and existing matching parameters skip persistent writes.
 
+Serial `TURN_ON` also repeats verification, overwrites the temporary voltage
+setpoint with approximately 20.5 V while OFF, then sends `HON` and verifies output
+ON with correction OFF. Repeating ON while already ON restarts at this low voltage.
+Any failure triggers an OFF attempt and returns an error.
+
 If serial monitoring detects correction enabled, it requests output OFF and records
 the monitor sample as an error. A successful OFF acknowledgement is not treated as
 proof of the subsequent output state; later monitoring supplies that state.
