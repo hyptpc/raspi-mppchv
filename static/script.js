@@ -221,6 +221,13 @@ function handleGraphToggle(portId, metric, element) {
  * Updates all status panels with the *latest* data point for each port,
  * using the detailed table layout. Assumes panels exist in HTML.
  */
+function statusCell(value, trueText, falseText, trueClass, falseClass) {
+    if (value !== true && value !== false) {
+        return '<td class="status-unknown">UNKNOWN</td>';
+    }
+    return `<td class="${value ? trueClass : falseClass}">${value ? trueText : falseText}</td>`;
+}
+
 function updateStatusPanels(data) {
     // Iterate only over UI ports defined in portLabels
     const sortedPortIds = Object.keys(portLabels).map(Number).sort((a, b) => a - b);
@@ -242,12 +249,14 @@ function updateStatusPanels(data) {
 
         if (latestData) {
             const d = latestData;
+            const headingClass = d.is_hv_on === true ? 'port-on'
+                : (d.is_hv_on === false ? 'port-off' : 'port-unknown');
             const h2 = panel.querySelector('h2');
             if (h2) {
                  h2.textContent = label;
-                 h2.className = d.is_hv_on ? 'port-on' : 'port-off';
+                 h2.className = headingClass;
             } else {
-                 panel.innerHTML = `<h2 class="${d.is_hv_on ? 'port-on' : 'port-off'}">${label}</h2>`;
+                 panel.innerHTML = `<h2 class="${headingClass}">${label}</h2>`;
             }
 
             const timestamp = new Date(d.timestamp).toLocaleString('ja-JP', { hour12: false });
@@ -264,16 +273,16 @@ function updateStatusPanels(data) {
                     <tr><td colspan="4">${timestamp}</td></tr>
                     <tr><td colspan="4"><strong>V:</strong> ${d.voltage ?? 'N/A'}V / <strong>C:</strong> ${d.current ?? 'N/A'}mA / <strong>T:</strong> ${d.temperature ?? 'N/A'}°C</td></tr>
                     <tr>
-                        <td>HV Status</td><td class="${d.is_hv_on ? 'status-ok' : 'status-warn'}">${d.is_hv_on ? 'ON' : 'OFF'}</td>
-                        <td>Overcurrent</td><td class="${!isOvercurrent ? 'status-ok' : 'status-warn'}">${!isOvercurrent ? 'OK' : 'ACTIVE'}</td>
+                        <td>HV Status</td>${statusCell(d.is_hv_on, 'ON', 'OFF', 'status-ok', 'status-warn')}
+                        <td>Overcurrent</td>${statusCell(isOvercurrent, 'ACTIVE', 'OK', 'status-warn', 'status-ok')}
                     </tr>
                     <tr>
-                        <td>Curr Limit</td><td class="${!isCurrentLimit ? 'status-ok' : 'status-warn'}">${!isCurrentLimit ? 'OK' : 'LIMIT'}</td>
-                        <td>Temp. Sensor</td><td class="${tempSensorConnected === null ? '' : (tempSensorConnected ? 'status-ok' : 'status-warn')}">${tempSensorConnected === null ? 'N/A' : (tempSensorConnected ? 'OK' : 'N/C')}</td>
+                        <td>Curr Limit</td>${statusCell(isCurrentLimit, 'LIMIT', 'OK', 'status-warn', 'status-ok')}
+                        <td>Temp. Sensor</td>${statusCell(tempSensorConnected, 'OK', 'N/C', 'status-ok', 'status-warn')}
                     </tr>
                     <tr>
-                        <td>Temp. Range</td><td class="${tempInRange === null ? '' : (tempInRange ? 'status-ok' : 'status-warn')}">${tempInRange === null ? 'N/A' : (tempInRange ? 'OK' : 'OUT')}</td>
-                        <td>Temp. Corr.</td><td class="${tempCorrEnabled === null ? '' : (tempCorrEnabled ? 'status-ok' : 'status-warn')}">${tempCorrEnabled === null ? 'N/A' : (tempCorrEnabled ? 'ON' : 'OFF')}</td>
+                        <td>Temp. Range</td>${statusCell(tempInRange, 'OK', 'OUT', 'status-ok', 'status-warn')}
+                        <td>Temp. Corr.</td>${statusCell(tempCorrEnabled, 'ON', 'OFF', 'status-warn', 'status-ok')}
                     </tr>
                 </table>
             `;
@@ -291,7 +300,10 @@ function updateStatusPanels(data) {
 
         } else {
              const h2 = panel.querySelector('h2');
-             if (h2) h2.textContent = label;
+             if (h2) {
+                 h2.textContent = label;
+                 h2.className = 'port-unknown';
+             }
              let contentElement = panel.querySelector('table');
              if (!contentElement) contentElement = panel.querySelector('p');
              if (contentElement) {

@@ -131,6 +131,11 @@ th, td {
     font-weight: bold;
 }
 
+.status-unknown, h2.port-unknown {
+    color: #6c757d;
+    font-weight: bold;
+}
+
 .graph-toggle-table td {
     text-align: center;
 }

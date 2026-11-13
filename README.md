@@ -173,6 +173,17 @@ Existing Kikusui measurement rows retain their original values in A. Before coll
 Kikusui data with this change, select an unused `databases.db_suffix` to create fresh
 databases and avoid mixing units with historical measurements.
 
+## Validation
+
+Install `requirements-dev.txt` to include JavaScript rendering tests, then run:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Unknown or missing monitoring status is displayed as `UNKNOWN`, including HV,
+protection, and temperature flags. Unknown status is not displayed as OFF or OK.
+
 ## Dependencies 📦
 
 * FastAPI: Web framework
