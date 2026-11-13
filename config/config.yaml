@@ -48,6 +48,12 @@ databases:
   db_directory: "data"
   db_suffix: ""
 
+# Optional standalone helper: ./sync_db.sh --once or --watch.
+# The app never starts syncing automatically. Leave the destination empty if unused.
+database_sync:
+  destination_directory: ""
+  interval_seconds: 5
+
 # true = mock hardware; false = open real devices listed above.
 test_mode:
   enabled: true

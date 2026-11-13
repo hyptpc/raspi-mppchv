@@ -126,6 +126,42 @@ This selects `data/measurements_run001.db` and `data/action_log_run001.db` toget
 An empty suffix selects `measurements.db` and `action_log.db`. Database creation,
 application connections, and snapshot helpers share the same filename resolver.
 
+## Optional database copies
+
+The application does not start synchronization automatically. To keep recording
+locally and publish copies elsewhere, configure a destination:
+
+```yaml
+databases:
+  db_directory: data
+  db_suffix: run001
+database_sync:
+  destination_directory: /home/sks/share/monitor-tmp
+  interval_seconds: 5
+```
+
+```bash
+./sync_db.sh --config config/config.yaml --dry-run  # Preview both source/target paths
+./sync_db.sh --config config/config.yaml --once     # Copy both databases once (default)
+./sync_db.sh --config config/config.yaml --watch    # Repeat until Ctrl+C; reload config each cycle
+./sync_db.sh --config config/config.yaml --destination /some/other/folder --suffix run002 --once
+```
+
+Each copy uses SQLite's online backup API, including committed WAL data. Both
+snapshots are created and checked before publishing either file; each destination
+file is replaced atomically. Sources and unrelated destination files are retained.
+The databases are independent, so their snapshots are not one cross-database transaction.
+Use the destination as a read-only copy location, rather than another app's writable DB directory.
+
+The helper reads `databases.db_directory` and `databases.db_suffix` from the same
+config as the controller. After using `--new-db`, either set that run's suffix in
+the config or pass its printed suffix with `--suffix`. Leave the sync destination
+empty when unused. No SQLite command-line program or hardware connection is needed.
+
+`sync_db.sh` runs from the repository directory and selects the project virtual
+environment, then `$HOME/.venv`, then `python3`. Set `HV_PYTHON` to override the
+interpreter. The Python entry point is also available as `python -m modules.db_sync`.
+
 ## Serial startup
 
 Before starting the server and command worker, each serial HV device receives `HOF`
