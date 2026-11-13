@@ -106,13 +106,19 @@ def _combine_primary_with_temp(port_id: int, primary_data: dict) -> dict:
         return out
     temp_communicator = DEVICE_PORTS.get(temp_port_id)
     if not temp_communicator or not isinstance(temp_communicator, SerialCommunicator):
+        log("WARN", f"Mapped temp port {temp_port_id} for {port_id} is unavailable or not serial.")
         return out
     temp_data = temp_communicator.monitor()
     if "error" in temp_data:
         log("WARN", f"Could not get temp data from {temp_port_id} during ramp/monitor combine.")
         return out
     out["temperature"] = temp_data.get("temperature")
-    out["status_flags"] = temp_data.get("status_flags", {})
+    # The mapped module supplies temperature, not the primary supply's HV/OCP/CC state.
+    flags = (primary_data.get("status_flags") or {}).copy()
+    temp_flags = temp_data.get("status_flags") or {}
+    for key in ("is_temp_sensor_connected", "is_temp_in_range", "is_temp_correction_enabled"):
+        flags[key] = temp_flags.get(key)
+    out["status_flags"] = flags
     out["status_raw"] = temp_data.get("status_raw")
     out["raw_response"] = (
         f"PRIMARY_RAW: {primary_data.get('raw_response', '')} | "
@@ -261,33 +267,8 @@ def worker(q: Queue):
 
                 if temp_port_id is not None:
                     log("DEBUG", f"Port {port_id} needs temp data from Port {temp_port_id}.")
-                    temp_communicator = DEVICE_PORTS.get(temp_port_id)
-
-                    if temp_communicator and isinstance(temp_communicator, SerialCommunicator):
-                        temp_data = temp_communicator.monitor()
-
-                        if "error" in temp_data:
-                            log("WARN", f"Could not get temp data from {temp_port_id}: {temp_data.get('error')}")
-                            combined_data = primary_data
-                        else:
-                            combined_data = primary_data.copy()
-                            combined_data["temperature"] = temp_data.get("temperature")
-                            combined_data["status_flags"] = temp_data.get("status_flags", {})
-                            combined_data["status_raw"] = temp_data.get("status_raw")
-                            combined_data["raw_response"] = (
-                                f"PRIMARY_RAW: {primary_data.get('raw_response', '')} | "
-                                f"TEMP_RAW: {temp_data.get('raw_response', '')}"
-                            )
-                            log("DEBUG", f"Combined data for Port {port_id}: {combined_data}")
-
-                        database.save_monitor_data(port_id, combined_data)
-
-                    else:
-                        log(
-                            "WARN",
-                            f"Mapped temp port {temp_port_id} for {port_id} is not a valid SerialCommunicator or doesn't exist.",
-                        )
-                        database.save_monitor_data(port_id, primary_data)
+                    combined_data = _combine_primary_with_temp(port_id, primary_data)
+                    database.save_monitor_data(port_id, combined_data)
 
                 else:
                     is_mapped_temp_sensor = port_id in DEVICE_MAPPINGS.values()
