@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-import os
+from modules.db_runs import database_paths
 
 # --- 1. Database Connection (Global but uninitialized) ---
 engine = None
@@ -21,17 +21,8 @@ def init_database_connection(db_directory: str, suffix: str = ""):
     """
     global engine, SessionLocal
     
-    filename_suffix = f"_{suffix}" if suffix else ""
-    DB_FILENAME = f"action_log{filename_suffix}.db"
-    
-    if db_directory and not os.path.exists(db_directory):
-        try:
-            os.makedirs(db_directory, exist_ok=True)
-        except OSError as e:
-            print(f"ERROR: Could not create database directory {db_directory}: {e}")
-            raise
-            
-    db_path = os.path.join(db_directory, DB_FILENAME)
+    db_path = database_paths(db_directory, suffix)['action_log']
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     DATABASE_URL = f"sqlite:///{db_path}"
     
     engine = create_engine(

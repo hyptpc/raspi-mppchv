@@ -10,10 +10,17 @@ from unittest.mock import patch
 import yaml
 
 from modules import db_logs, db_measurements
-from modules.db_runs import create_fresh_database_pair
+from modules.db_runs import create_fresh_database_pair, database_paths
 
 
 class DatabaseRunTests(unittest.TestCase):
+    def test_suffix_selects_both_database_names_consistently(self):
+        for suffix, ending in (('', ''), (None, ''), ('run001', '_run001'), (20261113, '_20261113')):
+            with self.subTest(suffix=suffix):
+                paths = database_paths('data', suffix)
+                self.assertEqual(paths['measurements'], Path('data') / f'measurements{ending}.db')
+                self.assertEqual(paths['action_log'], Path('data') / f'action_log{ending}.db')
+
     def test_named_pair_reserves_both_files(self):
         with TemporaryDirectory() as directory:
             self.assertEqual(create_fresh_database_pair(directory, 'run001'), 'run001')

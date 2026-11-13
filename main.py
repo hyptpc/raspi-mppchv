@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from modules import db_measurements as database
 from modules import db_logs as log_database
 from modules.logger import log
-from modules.db_runs import create_fresh_database_pair
+from modules.db_runs import create_fresh_database_pair, database_paths
 
 # --- Import Worker/Monitor functions and shared resources ---
 from modules import hardware_manager
@@ -283,12 +283,13 @@ if __name__ == "__main__":
         if args.new_db is not None:
             db_suffix = create_fresh_database_pair(db_directory, args.new_db)
             db_config['db_suffix'] = db_suffix
+        selected_paths = database_paths(db_directory, db_suffix)
         log("INFO", f"Selected database suffix: {db_suffix!r}")
         database.init_database_connection(db_directory, suffix=db_suffix)
-        log("INFO", f"Measurements DB connection initialized: {db_directory}/measurements{'_' if db_suffix else ''}{db_suffix}.db")
+        log("INFO", f"Measurements DB connection initialized: {selected_paths['measurements']}")
         database.init_db()
         log_database.init_database_connection(db_directory, suffix=db_suffix)
-        log("INFO", f"Action Log DB connection initialized: {db_directory}/action_log{'_' if db_suffix else ''}{db_suffix}.db")
+        log("INFO", f"Action Log DB connection initialized: {selected_paths['action_log']}")
         log_database.init_db()
     except Exception as e:
         log("ERROR", f"Failed to initialize databases in '{db_directory}': {e}"); exit(1)

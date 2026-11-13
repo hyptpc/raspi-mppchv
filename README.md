@@ -114,6 +114,18 @@ file rather than overwriting or resuming it. The selected suffix and paths are l
 To resume a run, set `databases.db_suffix` to its suffix and start without `--new-db`.
 `--init-db-only` can also initialize the configured pair without starting hardware.
 
+Both filenames use the same `databases.db_suffix` setting:
+
+```yaml
+databases:
+  db_directory: data
+  db_suffix: run001
+```
+
+This selects `data/measurements_run001.db` and `data/action_log_run001.db` together.
+An empty suffix selects `measurements.db` and `action_log.db`. Database creation,
+application connections, and snapshot helpers share the same filename resolver.
+
 ## Serial startup
 
 Before starting the server and command worker, each serial HV device receives `HOF`

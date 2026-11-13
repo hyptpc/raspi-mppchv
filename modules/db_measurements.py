@@ -8,9 +8,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, 
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-import os
 
 from modules.logger import log
+from modules.db_runs import database_paths
 
 # --- Database Setup ---
 DATABASE_URL = "sqlite:///data/measurements.db" # Default, can be overridden by main.py
@@ -53,9 +53,8 @@ def init_database_connection(db_dir: str = "data", suffix: str = ""):
     """Initializes the database engine and session."""
     global engine, SessionLocal, DATABASE_URL
 
-    os.makedirs(db_dir, exist_ok=True)
-    db_name = f"measurements{'_' if suffix else ''}{suffix}.db"
-    db_path = os.path.join(db_dir, db_name)
+    db_path = database_paths(db_dir, suffix)['measurements']
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     DATABASE_URL = f"sqlite:///{db_path}"
 
     try:
