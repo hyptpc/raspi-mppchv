@@ -399,7 +399,11 @@ def worker(q: Queue):
         except Exception as e:
             log("ERROR", f"Exception during command {cmd_type} for port {port_id}: {e}")
             error_cmd_str = f"ERROR executing {cmd_type}"
-            log_database.save_action_log(port_id, error_cmd_str, str(e).encode())
+            try:
+                log_database.save_action_log(port_id, error_cmd_str, str(e).encode())
+            except Exception as log_error:
+                # A failed error record must not terminate the command worker.
+                log("ERROR", f"Could not save action error for port {port_id}: {log_error}")
 
         finally:
             if is_blocking_task:
