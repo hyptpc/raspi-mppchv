@@ -431,7 +431,8 @@ def _communicator_initialized(communicator) -> bool:
 def api_precheck_set_voltage(port_id: int, target_voltage: float) -> str | None:
     """
     Synchronous check before queuing SET_VOLTAGE. Returns error message or None if OK.
-    Uses the per-port lock to avoid concurrent bus access with the worker.
+    Checks configuration only; the worker checks live state immediately before execution.
+    Do not access hardware or wait for the ramp lock from an API request.
     """
     communicator = DEVICE_PORTS.get(port_id)
     if not communicator:
@@ -441,11 +442,6 @@ def api_precheck_set_voltage(port_id: int, target_voltage: float) -> str | None:
     ok_lim, lim_err = check_max_voltage_allowed(port_id, float(target_voltage))
     if not ok_lim:
         return lim_err
-    with get_port_lock(port_id):
-        primary = communicator.monitor()
-        ok, err = check_set_voltage_safety(primary, float(target_voltage))
-        if not ok:
-            return err
     return None
 
 
