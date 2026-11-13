@@ -67,6 +67,46 @@ class SerialCommunicator:
         full_command_packet = stx + command + etx + checksum + delimiter
         return full_command_packet
 
+    def _validate_response(self, command: bytes, response: bytes) -> bytes:
+        """Return a verified frame or the common ERROR result used by callers."""
+        def invalid(reason):
+            log("ERROR", f"[Serial] [{self.port_name}] {reason}: {response!r}")
+            return f"ERROR:INVALID_RESPONSE:{reason}; raw={response!r}".encode('ascii')
+
+        if len(response) < 8 or not response.startswith(b'\x02') or not response.endswith(b'\r'):
+            return invalid('Incomplete frame')
+        if response[-4:-3] != b'\x03':
+            return invalid('Missing ETX')
+        body = response[1:-4]
+        # No embedded delimiters, binary bytes, or additional frames are allowed.
+        if any(value < 0x20 or value > 0x7E for value in body):
+            return invalid('Invalid ASCII body')
+        hex_digits = b'0123456789ABCDEFabcdef'
+        checksum = response[-3:-1]
+        if any(value not in hex_digits for value in checksum):
+            return invalid('Invalid checksum encoding')
+        if checksum.upper() != self._calculate_checksum(body):
+            return invalid('Checksum mismatch')
+        if body.startswith(b'hxx'):
+            log("ERROR", f"[Serial] [{self.port_name}] Device error: {response!r}")
+            return b'ERROR:DEVICE_ERROR:' + body + b'; raw=' + repr(response).encode('ascii')
+        response_command = command[:3].lower()
+        if body[:3] != response_command:
+            return invalid('Unexpected response command')
+
+        # Fixed numeric payloads used for monitoring and the compensation interlock.
+        payload_lengths = {b'hpo': 20, b'hgs': 4, b'hrt': 24,
+                           b'hof': 0, b'hon': 0, b'hre': 0,
+                           b'hcm': 0, b'hbv': 0, b'hst': 0}
+        expected_length = payload_lengths.get(response_command)
+        if expected_length is not None:
+            payload = body[3:]
+            if len(payload) != expected_length:
+                return invalid('Unexpected payload length')
+            if any(value not in hex_digits for value in payload):
+                return invalid('Invalid hexadecimal payload')
+        return response
+
     def _send_and_receive(self, command: bytes) -> bytes:
         """Sends a formatted command to the real hardware and returns the response."""
         # Check if the serial port is properly initialized and open
@@ -91,7 +131,7 @@ class SerialCommunicator:
             # Device frames end with CR, not LF.
             response = self.ser.read_until(b'\r')
             log("RECV", f"[Serial] [{self.port_name}] {response}")
-            return response
+            return self._validate_response(command, response)
         except serial.SerialException as e:
             # Handle potential communication errors (e.g., device disconnected)
             log("ERROR", f"[Serial] [{self.port_name}] Serial communication error: {e}")
