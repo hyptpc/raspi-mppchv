@@ -206,6 +206,10 @@ async def queue_structured_command(cmd: StructuredCommand):
     if cmd_type in ["SET_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"] and cmd.value is None:
         raise HTTPException(status_code=400, detail="A 'value' is required for this command.")
 
+    value_error = hardware_manager.validate_command_value(cmd_type, cmd.value)
+    if value_error:
+        raise HTTPException(status_code=422, detail=value_error)
+
     if cmd_type == "SET_VOLTAGE":
         pre_err = hardware_manager.api_precheck_set_voltage(cmd.port_id, float(cmd.value))
         if pre_err:

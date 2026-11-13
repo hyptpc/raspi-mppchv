@@ -5,6 +5,7 @@ DEVICE_PORTS / DEVICE_MAPPINGS / PORT_VOLTAGE_LIMITS_V are populated by main.py.
 The worker is polymorphic: SerialCommunicator and KikusuiCommunicator share a common command interface.
 """
 import time
+import math
 from queue import Queue
 import threading
 from modules import db_measurements as database
@@ -66,8 +67,23 @@ def _wants_voltage_increase(current_v: float, target_v: float) -> bool:
     return target_v > current_v + VOLTAGE_EQ_EPSILON_V
 
 
+def validate_command_value(command_type: str, value: float | None) -> str | None:
+    """Validate numeric control values before queuing or accessing hardware."""
+    if command_type not in ("SET_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"):
+        return None
+    try:
+        if math.isfinite(value) and value >= 0:
+            return None
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return "Value must be a finite, non-negative number."
+
+
 def check_max_voltage_allowed(port_id: int, target_voltage: float) -> tuple[bool, str | None]:
     """Reject target above configured per-port ceiling (if any)."""
+    value_error = validate_command_value("SET_VOLTAGE", target_voltage)
+    if value_error:
+        return False, value_error
     lim = PORT_VOLTAGE_LIMITS_V.get(port_id)
     if lim is None:
         return True, None
@@ -261,6 +277,9 @@ def worker(q: Queue):
         is_blocking_task = cmd_type in ["SET_VOLTAGE", "TURN_OFF"]
 
         try:
+            value_error = validate_command_value(cmd_type, value)
+            if value_error:
+                raise ValueError(value_error)
             if is_blocking_task:
                 with system_busy_lock:
                     is_system_busy = True
