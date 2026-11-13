@@ -143,6 +143,13 @@ The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
 Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
 output OFF before communication is established.
 
+The K29-B61218K status table (section 5, p.19) and example (section 4-4, p.10)
+define sensor bit 3 as 1 = connected, but section 5-4 (p.20) describes the inverse.
+The sensor display and temperature conversion retain the table/example convention;
+the correction interlock uses bit 6 and does not depend on bit 3. The documentation
+conflict remains unresolved pending confirmation against known sensor wiring or
+manufacturer clarification. Do not infer sensor wiring solely from this flag.
+
 Mock devices start with output OFF and retain ON/OFF and voltage settings. Serial
 mocks generate protocol frames and run the same response parser and interlocks as
 hardware. Kikusui mock queries reflect the same state as monitoring. Mock devices

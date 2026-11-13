@@ -331,6 +331,7 @@ class SerialCommunicator:
                 "is_hv_on": (status_int >> 0) & 1 == 1,
                 "is_overcurrent_protection_active": (status_int >> 1) & 1 == 1,
                 "is_current_out_of_spec": (status_int >> 2) & 1 == 1,
+                # Table/example convention; section 5-4 prose disagrees (see README).
                 "is_temp_sensor_connected": (status_int >> 3) & 1 == 1,
                 "is_temp_in_range": (status_int >> 4) & 1 == 0, # Bit 0 means IN range
                 "is_temp_correction_enabled": (status_int >> 6) & 1 == 1,
