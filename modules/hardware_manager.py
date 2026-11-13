@@ -161,8 +161,16 @@ def run_adaptive_voltage_ramp(
         return b"ERROR:NO_VOLTAGE"
 
     if abs(v_target - v_now) <= VOLTAGE_EQ_EPSILON_V:
-        monitor_primary_then_save_combined(port_id, communicator)
+        combined = monitor_primary_then_save_combined(port_id, communicator)
+        if "error" in combined:
+            return b"ERROR:MONITOR_FAILED"
+        if combined.get("voltage") is None:
+            return b"ERROR:NO_VOLTAGE"
         return b"OK_NOOP"
+
+    ramp_up = v_target > v_now
+    if ramp_up and parse_output_on(primary0) is not True:
+        return b"ERROR:OUTPUT_NOT_ON"
 
     iterations = 0
     while abs(v_target - v_now) > VOLTAGE_EQ_EPSILON_V:
@@ -186,7 +194,18 @@ def run_adaptive_voltage_ramp(
 
         t0 = time.perf_counter()
         last_response = communicator.set_voltage(v_next)
+        if not last_response or last_response.startswith(b"ERROR"):
+            log("ERROR", f"Voltage write failed during adaptive ramp port {port_id}: {last_response!r}")
+            return last_response or b"ERROR:VOLTAGE_WRITE_FAILED"
         combined = monitor_primary_then_save_combined(port_id, communicator)
+        if "error" in combined:
+            log("ERROR", f"Monitor error during adaptive ramp port {port_id}")
+            return b"ERROR:MONITOR_FAILED"
+        if combined.get("voltage") is None:
+            return b"ERROR:NO_VOLTAGE"
+        if ramp_up and parse_output_on(combined) is not True:
+            log("ERROR", f"Output is OFF or unknown during adaptive ramp up port {port_id}")
+            return b"ERROR:OUTPUT_NOT_ON"
         t_cycle = max(time.perf_counter() - t0, 1e-4)
 
         if RAMP_PAD_STEP_TO_TARGET_RATE and v_per_s > 1e-12 and dV_cmd > 1e-12:
@@ -198,18 +217,10 @@ def run_adaptive_voltage_ramp(
 
         t_prev = alpha * t_cycle + (1.0 - alpha) * t_prev
 
-        if "error" in combined:
-            log("WARN", f"Monitor error during adaptive ramp port {port_id}")
-            return last_response
-
         # Advance ramp state by the *commanded* step. Using only MEASure:VOLTage here
         # causes an apparent stall (same reading while the supply slews), which repeats
         # set_voltage at the same level and looks like infinite traffic.
         v_now = v_next
-
-    if abs(v_target - v_now) > VOLTAGE_EQ_EPSILON_V:
-        last_response = communicator.set_voltage(round(v_target, 3))
-        monitor_primary_then_save_combined(port_id, communicator)
 
     return last_response
 
@@ -297,7 +308,10 @@ def worker(q: Queue):
                             response = run_adaptive_voltage_ramp(
                                 port_id, communicator, float(value), RAMP_VOLTAGE_TARGET_V_PER_S
                             )
-                            log("RAMP", f"Adaptive SET_VOLTAGE complete for port {port_id}.")
+                            if not response or response.startswith(b"ERROR"):
+                                log("ERROR", f"Adaptive SET_VOLTAGE failed for port {port_id}: {response!r}")
+                            else:
+                                log("RAMP", f"Adaptive SET_VOLTAGE complete for port {port_id}.")
 
             elif cmd_type == "TURN_ON":
                 command_str_for_log = "TURN_ON"
