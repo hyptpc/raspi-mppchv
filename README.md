@@ -162,6 +162,21 @@ empty when unused. No SQLite command-line program or hardware connection is need
 environment, then `$HOME/.venv`, then `python3`. Set `HV_PYTHON` to override the
 interpreter. The Python entry point is also available as `python -m modules.db_sync`.
 
+If SQLite reports a locked database, use the same config:
+
+```bash
+./db_unlock.sh --config config/config.yaml
+```
+
+This checks both databases, waiting up to five seconds for each lock operation.
+SQLite handles journal recovery; WAL databases also receive a truncate checkpoint.
+The helper never kills processes or manually deletes database/journal files.
+An active process must release its own lock. On failure, the helper returns a
+nonzero status and lists processes using the files when `fuser` is available.
+Close the process holding the lock and retry; a successful check cannot prevent
+another process from acquiring a lock afterward. The controller and HV outputs
+are not operated by this helper. Interpreter selection matches `sync_db.sh`.
+
 ## Serial startup
 
 Before starting the server and command worker, each serial HV device receives `HOF`
