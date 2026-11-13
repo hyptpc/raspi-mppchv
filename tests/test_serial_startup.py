@@ -256,7 +256,7 @@ class SerialResetTests(unittest.TestCase):
 
     def test_mock_reset_does_not_access_serial_hardware(self):
         communicator = SerialCommunicator('/dev/mockHV', is_test_mode=True)
-        with patch.object(communicator, '_send_and_receive', side_effect=AssertionError('hardware access')):
+        with patch('modules.hamahoto_module.serial.Serial', side_effect=AssertionError('hardware access')):
             self.assertEqual(communicator.reset_device(), b'OK_SAFE_INITIALIZED_MOCK')
 
 

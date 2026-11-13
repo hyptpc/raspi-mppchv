@@ -9,7 +9,6 @@ that the polymorphic hardware_manager worker can use.
 import serial
 import time
 from modules.logger import log
-import random
 
 # --- Constants for parsing the 'HPO' command response ---
 # Indices for slicing the response string
@@ -34,6 +33,10 @@ class SerialCommunicator:
         self.is_test_mode = is_test_mode # Store the mode
 
         if self.is_test_mode:
+            self._mock_hv_on = False
+            self._mock_voltage_raw = int(self.SAFE_BASE_VOLTAGE_V / self.CONV_FACTOR_VOLT)
+            self._mock_correction = False
+            self._mock_parameters = b"0000" * 4 + b"2C31B7D7"
             log("MOCK", f"[Serial] Initialized mock communicator for {self.port_name}")
             # In test mode, just set 'ser' to True to indicate it's 'ready'
             self.ser = True 
@@ -113,6 +116,9 @@ class SerialCommunicator:
 
     def _send_and_receive(self, command: bytes) -> bytes:
         """Sends a formatted command to the real hardware and returns the response."""
+        if self.is_test_mode:
+            response = self._mock_exchange(command)
+            return self._validate_response(command, response)
         # Check if the serial port is properly initialized and open
         if not self.ser or (not self.is_test_mode and not self.ser.is_open):
             log("ERROR", f"[Serial] [{self.port_name}] Attempted send but port is not open or initialized.")
@@ -149,7 +155,6 @@ class SerialCommunicator:
         """
         if self.is_test_mode:
             log("MOCK", f"[Serial] [{self.port_name}] Simulating safe startup")
-            return b"OK_SAFE_INITIALIZED_MOCK"
 
         def request(command):
             response = self._send_and_receive(command)
@@ -178,7 +183,7 @@ class SerialCommunicator:
                     raise RuntimeError("Persistent parameter readback mismatch")
             verify_off()
             log("INFO", f"[Serial] [{self.port_name}] Startup verified: output OFF, correction OFF")
-            return b"OK_SAFE_INITIALIZED"
+            return b"OK_SAFE_INITIALIZED_MOCK" if self.is_test_mode else b"OK_SAFE_INITIALIZED"
         except Exception as error:
             log("ERROR", f"[Serial] [{self.port_name}] Safe startup failed: {error}")
             try:
@@ -189,43 +194,41 @@ class SerialCommunicator:
                 log("ERROR", f"[Serial] [{self.port_name}] Fallback OFF raised: {off_error}")
             return f"ERROR:SAFE_INITIALIZATION:{error}".encode('utf-8', errors='replace')
 
-    def _generate_mock_monitor_data(self) -> dict:
-        """Generates a realistic dictionary of mock data for testing."""
-        time.sleep(0.05) # Simulate hardware delay
-        mock_status_int = random.randint(0, 2**7)
-        status_flags = {
-            "is_hv_on": random.choice([True, False]),
-            "is_overcurrent_protection_active": (mock_status_int >> 1) & 1 == 1,
-            "is_current_out_of_spec": (mock_status_int >> 2) & 1 == 1,
-            "is_temp_sensor_connected": (mock_status_int >> 3) & 1 == 1,
-            "is_temp_in_range": (mock_status_int >> 4) & 1 == 0, # Bit 0 means IN range
-            "is_temp_correction_enabled": (mock_status_int >> 6) & 1 == 1,
-        }
-        mock_data = {
-            "status_raw": mock_status_int,
-            "status_flags": status_flags,
-            "voltage": round(random.uniform(65.0, 75.0), 3),
-            "current": round(random.uniform(0.01, 0.1), 3),
-            "temperature": round(random.uniform(20.0, 35.0), 3),
-            "raw_response": "mock data"
-        }
-        log("MOCK", f"[Serial] Generated data for {self.port_name}")
-        return mock_data
+    def _mock_exchange(self, command: bytes) -> bytes:
+        """Model serial state using the same response parser and interlocks as hardware."""
+        payload = b""
+        if command == b"HOF":
+            self._mock_hv_on = False
+        elif command == b"HON":
+            self._mock_hv_on = True
+        elif command in (b"HCM0", b"HCM1"):
+            self._mock_correction = command == b"HCM1"
+        elif command.startswith(b"HBV") and len(command) == 7:
+            self._mock_voltage_raw = int(command[3:], 16)
+            self._mock_correction = False
+        elif command.startswith(b"HST") and len(command) == 27:
+            self._mock_parameters = command[3:].upper()
+        elif command == b"HRT":
+            payload = self._mock_parameters
+        elif command in (b"HPO", b"HGS", b"HGV", b"HGC", b"HGT"):
+            status = 8 | int(self._mock_hv_on) | (int(self._mock_correction) << 6)
+            voltage = self._mock_voltage_raw if self._mock_hv_on else 0
+            values = {b"HGS": f"{status:04X}".encode(),
+                      b"HGV": f"{voltage:04X}".encode(), b"HGC": b"0000", b"HGT": b"B7D7"}
+            payload = (f"{status:04X}0000{voltage:04X}0000B7D7".encode()
+                       if command == b"HPO" else values[command])
+        else:
+            return self._format_command(b"hxx0005")
+        return self._format_command(command[:3].lower() + payload)
 
     # --- High-level device commands (Common Interface) ---
     
     def turn_on(self):
         """Sends the HON (HV ON) command."""
-        if self.is_test_mode:
-            log("MOCK", f"[Serial] [{self.port_name}] Simulating TURN_ON")
-            return b"hon_ok" # Simulate a successful response
         return self._send_and_receive(b"HON")
     
     def turn_off(self):
         """Sends the HOF (HV OFF) command."""
-        if self.is_test_mode:
-            log("MOCK", f"[Serial] [{self.port_name}] Simulating TURN_OFF")
-            return b"hof_ok"
         return self._send_and_receive(b"HOF")
 
     def reset_device(self):
@@ -244,18 +247,11 @@ class SerialCommunicator:
         if error:
             return f"ERROR:RAW_COMMAND_NOT_ALLOWED:{error}".encode('ascii')
         command_str = command_str.strip().upper()
-        if self.is_test_mode:
-            log("MOCK", f"[Serial] [{self.port_name}] Simulating RAW command: {command_str}")
-            return b"raw_ok"
         # Encode the user's string to bytes for the protocol
         return self._send_and_receive(command_str.encode('ascii'))
 
     def set_voltage(self, voltage: float):
         """Sends the HBV command to set voltage."""
-        if self.is_test_mode:
-            log("MOCK", f"[Serial] [{self.port_name}] Simulating SET_VOLTAGE to {voltage}V")
-            return b"hbv_ok"
-            
         # Convert voltage to 4-digit hex string required by the device
         hex_voltage_value = int(voltage / self.CONV_FACTOR_VOLT)
         hex_voltage_string = format(hex_voltage_value, "04x").encode()
@@ -267,9 +263,6 @@ class SerialCommunicator:
         Sends HPO command and parses the response, or returns mock data.
         This is the source of temperature data.
         """
-        if self.is_test_mode:
-            return self._generate_mock_monitor_data()
-
         response_bytes = self._send_and_receive(b"HPO")
         if not response_bytes or b"ERROR" in response_bytes:
             log("ERROR", f"[Serial] [{self.port_name}] No valid response for MONITOR command.")

@@ -126,6 +126,11 @@ The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
 Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
 output OFF before communication is established.
 
+Mock devices start with output OFF and retain ON/OFF and voltage settings. Serial
+mocks generate protocol frames and run the same response parser and interlocks as
+hardware. Kikusui mock queries reflect the same state as monitoring. Mock devices
+model no load by default and never open serial or VISA connections.
+
 ## Raw commands
 
 Serial raw commands are limited to `HRT`, `HPO`, `HGS`, `HGV`, `HGC`, `HGT`, and

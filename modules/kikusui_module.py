@@ -10,7 +10,6 @@ methods like enable_ocp.
 import pyvisa
 import time
 from modules.logger import log
-import random
 
 class KikusuiCommunicator:
     # --- Constants for Status Register Bits for PMX18-2A ---
@@ -45,6 +44,12 @@ class KikusuiCommunicator:
         self.is_test_mode = is_test_mode
 
         if self.is_test_mode:
+            self._mock_is_on = False
+            self._mock_voltage = 0.0
+            self._mock_current_a = 0.0
+            self._mock_current_limit_a = 0.0
+            self._mock_ocp_enabled = False
+            self._mock_ocp_level_a = 0.0
             log("MOCK", f"[Kikusui] Initialized mock communicator for {self.resource_string}")
             # In test mode, just set 'instrument' to True to indicate it's 'ready'
             self.instrument = True 
@@ -84,6 +89,13 @@ class KikusuiCommunicator:
 
     def _query(self, command: str) -> bytes:
         """Private method to send a query command and get a response."""
+        if self.is_test_mode:
+            values = {'*IDN?': 'KIKUSUI,MOCK,0,0',
+                      'MEASure:VOLTage?': self._mock_voltage if self._mock_is_on else 0.0,
+                      'MEASure:CURRent?': self._mock_current_a if self._mock_is_on else 0.0,
+                      'OUTPut:STATe?': int(self._mock_is_on),
+                      'STATus:OPERation:CONDition?': 0, 'STATus:QUEStionable:EVENt?': 0}
+            return str(values[command]).encode('ascii')
         if not self.instrument:
             log("ERROR", f"[Kikusui] [{self.resource_string}] Attempted query but instrument is not open.")
             return b"ERROR:NOT_OPEN"
@@ -101,29 +113,12 @@ class KikusuiCommunicator:
                 return b"ERROR:VISA_TIMEOUT"
             return b"ERROR:VISA_QUERY_FAILED"
 
-    def _generate_mock_monitor_data(self) -> dict:
-        """Generates a realistic dictionary of mock data for testing."""
-        time.sleep(0.05) # Simulate hardware delay
-        mock_is_on = random.choice([True, False])
-        mock_status_info = {
-            "is_cc_mode": random.choice([True, False]) if mock_is_on else False,
-            "has_ocp_tripped": False # OCP trips should be rare
-        }
-        mock_data = {
-            "is_on": mock_is_on,
-            "voltage": round(random.uniform(65.0, 75.0), 3) if mock_is_on else 0.0,
-            "current": round(random.uniform(0.01, 0.1), 3) if mock_is_on else 0.0, # mA
-            "status_info": mock_status_info,
-            "raw_response": "mock data"
-        }
-        log("MOCK", f"[Kikusui] Generated data for {self.resource_string}")
-        return mock_data
-
     # --- High-level device commands (Common Interface) ---
     
     def turn_on(self):
         """Sends the OUTP ON command """
         if self.is_test_mode:
+            self._mock_is_on = True
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating TURN_ON")
             return b"OK_ON"
         return self._write("OUTPut:STATe ON")
@@ -131,6 +126,7 @@ class KikusuiCommunicator:
     def turn_off(self):
         """Sends the OUTP OFF command """
         if self.is_test_mode:
+            self._mock_is_on = False
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating TURN_OFF")
             return b"OK_OFF"
         return self._write("OUTPut:STATe OFF")
@@ -138,6 +134,8 @@ class KikusuiCommunicator:
     def reset_device(self):
         """Sends *RST (Reset) and *CLS (Clear Status)."""
         if self.is_test_mode:
+            self._mock_is_on = False
+            self._mock_voltage = 0.0
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating RESET")
             return b"OK_RST"
         # Reset and clear can be combined in a single write.
@@ -155,14 +153,12 @@ class KikusuiCommunicator:
         if error:
             return f"ERROR:RAW_COMMAND_NOT_ALLOWED:{error}".encode('ascii')
         command_str = self.RAW_QUERIES[command_str.strip().upper()]
-        if self.is_test_mode:
-            log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating RAW command: {command_str}")
-            return b"OK_RAW"
         return self._query(command_str)
 
     def set_voltage(self, voltage: float):
         """Sends the SOURce:VOLTage command to set the output voltage."""
         if self.is_test_mode:
+            self._mock_voltage = voltage
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating SET_VOLTAGE to {voltage}V")
             return b"OK_VOLT"
         
@@ -174,6 +170,7 @@ class KikusuiCommunicator:
     def set_current(self, current: float):
         """Sets the Constant Current (CC) level (SOURce:CURRent)."""
         if self.is_test_mode:
+            self._mock_current_limit_a = current
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating SET_CURRENT to {current}A")
             return b"OK_CURR"
         command = f"SOURce:CURRent {current:.3f}"
@@ -182,6 +179,8 @@ class KikusuiCommunicator:
     def enable_ocp(self, trip_current: float):
         """Enables Over-Current Protection (OCP) and sets the trip level."""
         if self.is_test_mode:
+            self._mock_ocp_enabled = True
+            self._mock_ocp_level_a = trip_current
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating ENABLE_OCP to {trip_current}A")
             return b"OK_OCP"
         
@@ -192,6 +191,7 @@ class KikusuiCommunicator:
     def disable_ocp(self):
         """Disables Over-Current Protection (OCP)."""
         if self.is_test_mode:
+            self._mock_ocp_enabled = False
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating DISABLE_OCP")
             return b"OK_OCP_OFF"
         return self._write("CURRent:PROTection:STATe OFF")
@@ -211,9 +211,6 @@ class KikusuiCommunicator:
         Fetches measurements and status, including CC mode and OCP trip events.
         Returns voltage in V and measured current in mA for the shared DB/UI.
         """
-        if self.is_test_mode:
-            return self._generate_mock_monitor_data()
-
         try:
             # --- MODIFIED: Switched to individual 'query' calls to prevent timeouts ---
             # 1. Get Voltage
