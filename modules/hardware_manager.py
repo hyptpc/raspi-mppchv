@@ -307,25 +307,36 @@ def worker(q: Queue):
                 command_str_for_log = "TURN_OFF (with adaptive ramp down)"
                 port_lock = get_port_lock(port_id)
                 with port_lock:
-                    floor_v = 20.5
-                    down_rate = RAMP_VOLTAGE_DOWN_TARGET_V_PER_S
-                    if down_rate is None:
-                        down_rate = RAMP_VOLTAGE_TARGET_V_PER_S
-                    primary_off = communicator.monitor()
-                    start_v = 20.0
-                    if "error" not in primary_off and primary_off.get("voltage") is not None:
-                        start_v = primary_off["voltage"]
-                    else:
-                        log("WARN", f"Could not get current voltage for {port_id}. Assuming {start_v}V for ramp decision.")
-
-                    if start_v > floor_v + VOLTAGE_EQ_EPSILON_V:
-                        log("RAMP", f"Starting adaptive ramp down for port {port_id} before turning off...")
-                        run_adaptive_voltage_ramp(port_id, communicator, floor_v, down_rate)
-                    else:
-                        log("INFO", f"Port {port_id} at or below floor {floor_v}V; skipping ramp down.")
-
-                    log("INFO", f"Sending final TURN_OFF to port {port_id}.")
-                    response = communicator.turn_off()
+                    ramp_failure = b""
+                    try:
+                        floor_v = 20.5
+                        down_rate = RAMP_VOLTAGE_DOWN_TARGET_V_PER_S
+                        if down_rate is None:
+                            down_rate = RAMP_VOLTAGE_TARGET_V_PER_S
+                        primary_off = communicator.monitor()
+                        start_v = primary_off.get("voltage")
+                        if "error" in primary_off or start_v is None:
+                            log("WARN", f"Could not get current voltage for {port_id}; sending OFF directly.")
+                        elif start_v > floor_v + VOLTAGE_EQ_EPSILON_V:
+                            log("RAMP", f"Starting adaptive ramp down for port {port_id} before turning off...")
+                            ramp_response = run_adaptive_voltage_ramp(
+                                port_id, communicator, floor_v, down_rate
+                            )
+                            if not ramp_response or ramp_response.startswith(b"ERROR"):
+                                ramp_failure = b"ERROR:RAMP_DOWN_FAILED:" + ramp_response
+                                log("ERROR", f"Ramp down failed for port {port_id}: {ramp_response!r}; sending OFF directly.")
+                        else:
+                            log("INFO", f"Port {port_id} at or below floor {floor_v}V; skipping ramp down.")
+                    except Exception as ramp_error:
+                        ramp_failure = f"ERROR:RAMP_DOWN_FAILED:{ramp_error}".encode('utf-8', errors='replace')
+                        log("ERROR", f"Ramp down failed for port {port_id}: {ramp_error}; sending OFF directly.")
+                    finally:
+                        # OFF must be attempted even when monitoring or ramping raises.
+                        response = communicator.turn_off()
+                    if not response or response.startswith(b"ERROR"):
+                        log("ERROR", f"TURN_OFF failed for port {port_id}: {response!r}")
+                    if ramp_failure:
+                        response = ramp_failure + b" | OFF: " + response
                     monitor_primary_then_save_combined(port_id, communicator)
 
             elif cmd_type == "RESET":
