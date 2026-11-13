@@ -303,6 +303,22 @@ class SerialCommunicator:
                 "is_temp_correction_enabled": (status_int >> 6) & 1 == 1,
             }
 
+            if status_flags["is_temp_correction_enabled"]:
+                error = "Temperature correction unexpectedly enabled; output OFF requested"
+                try:
+                    off_response = self.turn_off()
+                except Exception as off_error:
+                    off_response = f"ERROR:OFF_FAILED:{off_error}".encode('utf-8', errors='replace')
+                if not off_response or off_response.startswith(b"ERROR"):
+                    error += "; OFF command failed"
+                log("ERROR", f"[Serial] [{self.port_name}] {error}: {off_response!r}")
+                return {
+                    "error": error,
+                    "status_raw": status_int,
+                    "status_flags": status_flags,
+                    "raw_response": f"ERROR:TEMP_CORRECTION_ENABLED | HPO: {response_string.strip()} | OFF: {off_response!r}",
+                }
+
             # Convert hex values to physical units using conversion factors
             voltage = int(voltage_hex, 16) * self.CONV_FACTOR_VOLT
             current = int(current_hex, 16) * self.CONV_FACTOR_CURR

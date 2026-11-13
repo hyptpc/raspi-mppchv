@@ -118,6 +118,10 @@ For serial devices, `RESET` repeats this OFF and parameter-verification procedur
 It does not send `HRE` or enable HV output. Reset failures are recorded in the
 action log, and existing matching parameters skip persistent writes.
 
+If serial monitoring detects correction enabled, it requests output OFF and records
+the monitor sample as an error. A successful OFF acknowledgement is not treated as
+proof of the subsequent output state; later monitoring supplies that state.
+
 The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
 Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
 output OFF before communication is established.

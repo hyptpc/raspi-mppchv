@@ -1,6 +1,10 @@
 import unittest
 from unittest.mock import Mock, patch
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from modules import db_measurements as database, hardware_manager
 from modules.hamahoto_module import SerialCommunicator
 
 
@@ -90,6 +94,56 @@ class SerialResponseTests(unittest.TestCase):
         self.assertEqual(result['voltage'], 1.017)
         self.assertFalse(result['status_flags']['is_hv_on'])
         self.assertFalse(result['status_flags']['is_temp_correction_enabled'])
+
+    def test_enabled_correction_triggers_off_and_returns_error(self):
+        self.communicator.ser.read_until.side_effect = [
+            frame(b'hpo004100002C310000B7D7'), frame(b'hof'),
+        ]
+        result = self.communicator.monitor()
+        self.assertIn('unexpectedly enabled', result['error'])
+        self.assertTrue(result['status_flags']['is_temp_correction_enabled'])
+        self.assertNotIn('voltage', result)
+        self.assertEqual([args[0][1:-4] for args, _ in self.communicator.ser.write.call_args_list],
+                         [b'HPO', b'HOF'])
+
+    def test_correction_trip_reports_off_failures(self):
+        for off_result in (b'ERROR:SERIAL_COMM_FAILED', b''):
+            with self.subTest(off_result=off_result):
+                self.communicator.ser.read_until.return_value = frame(b'hpo004100002C310000B7D7')
+                with patch.object(self.communicator, 'turn_off', return_value=off_result) as off:
+                    result = self.communicator.monitor()
+                off.assert_called_once()
+                self.assertIn('OFF command failed', result['error'])
+
+    def test_correction_trip_handles_off_exception(self):
+        self.communicator.ser.read_until.return_value = frame(b'hpo004100002C310000B7D7')
+        with patch.object(self.communicator, 'turn_off', side_effect=RuntimeError('disconnected')):
+            result = self.communicator.monitor()
+        self.assertIn('OFF command failed', result['error'])
+        self.assertIn('disconnected', result['raw_response'])
+
+    def test_disabled_correction_does_not_send_off(self):
+        self.communicator.ser.read_until.return_value = frame(b'hpo000100002C310000B7D7')
+        with patch.object(self.communicator, 'turn_off') as off:
+            self.assertNotIn('error', self.communicator.monitor())
+        off.assert_not_called()
+
+    def test_correction_trip_is_saved_as_error_with_original_status(self):
+        engine = create_engine('sqlite://')
+        self.addCleanup(engine.dispose)
+        database.Base.metadata.create_all(engine)
+        sessions = sessionmaker(bind=engine)
+        self.communicator.ser.read_until.side_effect = [
+            frame(b'hpo004100002C310000B7D7'), frame(b'hof'),
+        ]
+        with patch.object(database, 'SessionLocal', sessions):
+            hardware_manager.monitor_primary_then_save_combined(1, self.communicator)
+        with sessions() as session:
+            row = session.query(database.Measurement).one()
+            self.assertIsNone(row.voltage)
+            self.assertIsNone(row.is_hv_on)
+            self.assertTrue(row.is_temp_correction_enabled)
+            self.assertIn('ERROR:TEMP_CORRECTION_ENABLED', row.raw_response)
 
 
 if __name__ == '__main__':
