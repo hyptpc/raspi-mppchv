@@ -54,9 +54,8 @@ class SerialCommunicator:
         """Calculates the checksum for a given command."""
         # Sum of bytes from command + STX (0x02) + ETX (0x03) = 5
         total_sum = sum(command) + 5
-        # Convert sum to hex, take last two characters, encode to bytes
-        checksum_hex = hex(total_sum)[-2:]
-        return checksum_hex.encode()
+        # Keep the low byte, including a leading zero, as uppercase ASCII hex.
+        return f"{total_sum & 0xFF:02X}".encode('ascii')
 
     def _format_command(self, command: bytes) -> bytes:
         """Builds the full command packet with STX, ETX, checksum, etc."""
@@ -89,8 +88,8 @@ class SerialCommunicator:
             self.ser.flush()
             # Wait a short time for the device to process and respond
             time.sleep(0.1) # 100ms delay for device processing
-            # Read the response line from the device
-            response = self.ser.readline()
+            # Device frames end with CR, not LF.
+            response = self.ser.read_until(b'\r')
             log("RECV", f"[Serial] [{self.port_name}] {response}")
             return response
         except serial.SerialException as e:
