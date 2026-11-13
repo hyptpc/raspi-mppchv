@@ -101,6 +101,29 @@ class VoltageRampTests(unittest.TestCase):
             self.ramp([reading()])
         self.communicator.set_voltage.assert_called_once_with(2.5)
 
+    def test_nonfinite_monitoring_stops_before_another_write(self):
+        for value in (float('nan'), float('inf'), float('-inf'), 'invalid'):
+            for monitors, count in (([reading(value)], 0), ([reading(), reading(value)], 1)):
+                with self.subTest(value=value, count=count):
+                    self.communicator.reset_mock()
+                    self.assertEqual(self.ramp(monitors), b'ERROR:INVALID_VOLTAGE')
+                    self.assertEqual(self.communicator.set_voltage.call_count, count)
+
+    def test_invalid_rates_and_targets_do_not_access_hardware(self):
+        for rate in (0, -1, float('nan'), float('inf')):
+            self.assertEqual(hardware_manager.run_adaptive_voltage_ramp(
+                1, self.communicator, 3.0, rate), b'ERROR:INVALID_RAMP_RATE')
+        for target in (-1, float('nan'), float('inf')):
+            self.assertEqual(hardware_manager.run_adaptive_voltage_ramp(
+                1, self.communicator, target, 5.0), b'ERROR:INVALID_TARGET_VOLTAGE')
+        self.communicator.monitor.assert_not_called()
+        self.communicator.set_voltage.assert_not_called()
+
+    def test_disabling_on_requirement_does_not_accept_monitor_errors(self):
+        with patch.object(hardware_manager, 'REQUIRE_ON_FOR_VOLTAGE_INCREASE', False):
+            for sample in ({'error': 'timeout'}, reading(float('nan')), {'is_on': True}):
+                self.assertFalse(hardware_manager.check_set_voltage_safety(sample, 3.0)[0])
+
     def test_worker_does_not_log_failed_ramp_as_complete(self):
         for result in (b'ERROR:MONITOR_FAILED', b'OK'):
             with self.subTest(result=result):

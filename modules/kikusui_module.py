@@ -9,6 +9,7 @@ methods like enable_ocp.
 """
 import pyvisa
 import time
+import math
 from modules.logger import log
 
 class KikusuiCommunicator:
@@ -242,6 +243,8 @@ class KikusuiCommunicator:
             voltage = float(voltage_str)
             # SCPI reports A; convert to the shared mA unit before rounding.
             current_ma = float(current_str) * 1000.0
+            if not math.isfinite(voltage) or not math.isfinite(current_ma):
+                raise ValueError("Non-finite voltage or current reading")
             is_on = (status_str == '1')
             
             operation_cond = int(operation_cond_str)

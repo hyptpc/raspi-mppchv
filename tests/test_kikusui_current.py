@@ -45,6 +45,18 @@ class KikusuiCurrentTests(unittest.TestCase):
         self.assertIn('error', result)
         self.assertNotIn('current', result)
 
+    def test_nonfinite_readings_are_monitor_errors(self):
+        for query in ('MEASure:VOLTage?', 'MEASure:CURRent?'):
+            for value in ('nan', 'inf', '-inf'):
+                with self.subTest(query=query, value=value):
+                    old = self.responses[query]
+                    self.responses[query] = value
+                    result = self.communicator.monitor()
+                    self.responses[query] = old
+                    self.assertIn('error', result)
+                    self.assertNotIn('voltage', result)
+                    self.assertNotIn('current', result)
+
     def test_current_and_ocp_settings_still_use_amps(self):
         self.communicator.set_current(0.012)
         self.communicator.instrument.write.assert_called_with('SOURce:CURRent 0.012')

@@ -67,6 +67,13 @@ def _wants_voltage_increase(current_v: float, target_v: float) -> bool:
     return target_v > current_v + VOLTAGE_EQ_EPSILON_V
 
 
+def _is_finite(value) -> bool:
+    try:
+        return math.isfinite(value)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def validate_command_value(command_type: str, value: float | None) -> str | None:
     """Validate numeric control values before queuing or accessing hardware."""
     if command_type not in ("SET_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"):
@@ -102,15 +109,17 @@ def check_max_voltage_allowed(port_id: int, target_voltage: float) -> tuple[bool
 def check_set_voltage_safety(primary_monitor: dict, target_voltage: float) -> tuple[bool, str | None]:
     """
     Returns (allowed, error_message).
-    When REQUIRE_ON_FOR_VOLTAGE_INCREASE is False, always allowed.
+    Disabling the ON requirement does not waive valid monitoring data.
     """
-    if not REQUIRE_ON_FOR_VOLTAGE_INCREASE:
-        return True, None
     if "error" in primary_monitor:
         return False, "Monitor error; cannot verify state for voltage change."
     current_v = primary_monitor.get("voltage")
     if current_v is None:
         return False, "Voltage reading unavailable."
+    if not _is_finite(current_v):
+        return False, "Voltage reading is not finite."
+    if not REQUIRE_ON_FOR_VOLTAGE_INCREASE:
+        return True, None
     if not _wants_voltage_increase(current_v, target_voltage):
         return True, None
     on = parse_output_on(primary_monitor)
@@ -172,6 +181,10 @@ def run_adaptive_voltage_ramp(
     If RAMP_PAD_STEP_TO_TARGET_RATE, each step waits until at least dV/v_per_s has
     elapsed so fast links do not outrun the target rate (similar to fixed delay).
     """
+    if validate_command_value("SET_VOLTAGE", v_target):
+        return b"ERROR:INVALID_TARGET_VOLTAGE"
+    if not _is_finite(v_per_s) or v_per_s <= 0:
+        return b"ERROR:INVALID_RAMP_RATE"
     t_default = RAMP_VOLTAGE_DEFAULT_CYCLE_S
     alpha = RAMP_VOLTAGE_CYCLE_EWMA_ALPHA
     t_prev = t_default
@@ -182,6 +195,8 @@ def run_adaptive_voltage_ramp(
     v_now = primary0.get("voltage")
     if v_now is None:
         return b"ERROR:NO_VOLTAGE"
+    if not _is_finite(v_now):
+        return b"ERROR:INVALID_VOLTAGE"
 
     if abs(v_target - v_now) <= VOLTAGE_EQ_EPSILON_V:
         combined = monitor_primary_then_save_combined(port_id, communicator)
@@ -189,6 +204,8 @@ def run_adaptive_voltage_ramp(
             return b"ERROR:MONITOR_FAILED"
         if combined.get("voltage") is None:
             return b"ERROR:NO_VOLTAGE"
+        if not _is_finite(combined.get("voltage")):
+            return b"ERROR:INVALID_VOLTAGE"
         return b"OK_NOOP"
 
     ramp_up = v_target > v_now
@@ -226,6 +243,8 @@ def run_adaptive_voltage_ramp(
             return b"ERROR:MONITOR_FAILED"
         if combined.get("voltage") is None:
             return b"ERROR:NO_VOLTAGE"
+        if not _is_finite(combined.get("voltage")):
+            return b"ERROR:INVALID_VOLTAGE"
         if ramp_up and parse_output_on(combined) is not True:
             log("ERROR", f"Output is OFF or unknown during adaptive ramp up port {port_id}")
             return b"ERROR:OUTPUT_NOT_ON"
