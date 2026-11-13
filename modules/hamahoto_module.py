@@ -8,6 +8,7 @@ that the polymorphic hardware_manager worker can use.
 """
 import serial
 import time
+import math
 from modules.logger import log
 
 # --- Constants for parsing the 'HPO' command response ---
@@ -25,6 +26,8 @@ class SerialCommunicator:
     CONV_FACTOR_CURR = 4.980e-3
     SAFE_BASE_VOLTAGE_V = 20.5
     SAFE_BASE_TEMPERATURE_C = 25.0
+    MIN_VOLTAGE_V = 20.0
+    MAX_VOLTAGE_V = 90.0
     RAW_COMMANDS = frozenset({"HRT", "HPO", "HGS", "HGV", "HGC", "HGT", "HOF"})
     
     def __init__(self, port_name: str, is_test_mode: bool):
@@ -277,11 +280,21 @@ class SerialCommunicator:
         # Encode the user's string to bytes for the protocol
         return self._send_and_receive(command_str.encode('ascii'))
 
+    @classmethod
+    def validate_voltage(cls, voltage: float) -> str | None:
+        if not math.isfinite(voltage) or not cls.MIN_VOLTAGE_V <= voltage <= cls.MAX_VOLTAGE_V:
+            return "Serial HV voltage must be between 20 and 90 V. Use TURN_OFF to disable output."
+        return None
+
     def set_voltage(self, voltage: float):
         """Sends the HBV command to set voltage."""
+        error = self.validate_voltage(voltage)
+        if error:
+            return f"ERROR:VOLTAGE_RANGE:{error}".encode('ascii')
         # Convert voltage to 4-digit hex string required by the device
-        hex_voltage_value = int(voltage / self.CONV_FACTOR_VOLT)
-        hex_voltage_string = format(hex_voltage_value, "04x").encode()
+        hex_voltage_value = max(math.ceil(self.MIN_VOLTAGE_V / self.CONV_FACTOR_VOLT),
+                                int(voltage / self.CONV_FACTOR_VOLT))
+        hex_voltage_string = format(hex_voltage_value, "04X").encode()
         command = b"HBV" + hex_voltage_string
         return self._send_and_receive(command)
 

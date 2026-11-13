@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from modules import hardware_manager
+from modules.hamahoto_module import SerialCommunicator
 
 
 class EndOfTasks(Exception):
@@ -13,7 +14,7 @@ class TurnOffFailureTests(unittest.TestCase):
                 off_error=None, off_result=b'OK_OFF', save_error=None,
                 monitor_result=None):
         events = []
-        communicator = Mock(ser=True)
+        communicator = Mock(spec=SerialCommunicator, ser=True, SAFE_BASE_VOLTAGE_V=20.5)
 
         def monitor():
             events.append('monitor')

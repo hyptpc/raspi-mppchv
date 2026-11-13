@@ -14,7 +14,7 @@ class SerialTurnOnTests(unittest.TestCase):
         with patch.object(self.communicator, '_send_and_receive', wraps=self.communicator._send_and_receive) as send:
             self.assertFalse(self.communicator.turn_on().startswith(b'ERROR'))
         commands = [args[0] for args, _ in send.call_args_list]
-        self.assertEqual(commands, [b'HOF', b'HCM0', b'HGS', b'HRT', b'HGS', b'HBV2c31', b'HGS', b'HON', b'HGS'])
+        self.assertEqual(commands, [b'HOF', b'HCM0', b'HGS', b'HRT', b'HGS', b'HBV2C31', b'HGS', b'HON', b'HGS'])
         reading = self.communicator.monitor()
         self.assertTrue(reading['status_flags']['is_hv_on'])
         self.assertFalse(reading['status_flags']['is_temp_correction_enabled'])

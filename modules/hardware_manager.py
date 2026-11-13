@@ -84,10 +84,17 @@ def check_max_voltage_allowed(port_id: int, target_voltage: float) -> tuple[bool
     value_error = validate_command_value("SET_VOLTAGE", target_voltage)
     if value_error:
         return False, value_error
+    communicator = DEVICE_PORTS.get(port_id)
+    if isinstance(communicator, SerialCommunicator):
+        range_error = communicator.validate_voltage(target_voltage)
+        if range_error:
+            return False, range_error
     lim = PORT_VOLTAGE_LIMITS_V.get(port_id)
     if lim is None:
         return True, None
-    if target_voltage > lim + VOLTAGE_EQ_EPSILON_V:
+    if validate_command_value("SET_VOLTAGE", lim):
+        return False, "Configured voltage limit must be finite and non-negative."
+    if target_voltage > lim:
         return False, f"Target voltage exceeds configured limit ({lim} V) for this channel."
     return True, None
 
@@ -334,7 +341,11 @@ def worker(q: Queue):
 
             elif cmd_type == "TURN_ON":
                 command_str_for_log = "TURN_ON"
-                response = communicator.turn_on()
+                if isinstance(communicator, SerialCommunicator):
+                    allowed, error = check_max_voltage_allowed(port_id, communicator.SAFE_BASE_VOLTAGE_V)
+                    response = communicator.turn_on() if allowed else f"ERROR:TURN_ON:{error}".encode()
+                else:
+                    response = communicator.turn_on()
 
             elif cmd_type == "TURN_OFF":
                 command_str_for_log = "TURN_OFF (with adaptive ramp down)"
@@ -342,7 +353,7 @@ def worker(q: Queue):
                 with port_lock:
                     ramp_failure = b""
                     try:
-                        floor_v = 20.5
+                        floor_v = communicator.SAFE_BASE_VOLTAGE_V if isinstance(communicator, SerialCommunicator) else 0.0
                         down_rate = RAMP_VOLTAGE_DOWN_TARGET_V_PER_S
                         if down_rate is None:
                             down_rate = RAMP_VOLTAGE_TARGET_V_PER_S

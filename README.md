@@ -149,6 +149,10 @@ Both the API and device adapters enforce these restrictions.
 
 ## Measurement units
 
+Serial voltage requests must be within 20–90 V and the configured channel limit.
+Serial OFF ramps down to 20.5 V before OFF; Kikusui OFF ramps down to 0 V.
+Use `TURN_OFF`, rather than a zero-voltage request, to disable a serial output.
+
 Measured current is stored and displayed in mA for both serial and Kikusui devices.
 Kikusui current readings are converted from A to mA before rounding. Current and OCP
 setpoints still use A.
