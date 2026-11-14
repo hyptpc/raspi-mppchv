@@ -204,6 +204,15 @@ The controller does not change the existing ON/OFF state or output setpoints.
 Monitoring reads the existing state without setting output levels. Software startup
 does not restore previous settings or turn outputs back on after a power loss.
 
+An explicit Kikusui `TURN_ON` checks that the 0 V start value is allowed by
+`max_voltage_v`, then queries the output state. An already-ON supply is left alone.
+For an OFF supply, it sets 0 V and verifies the setting with `SOURce:VOLTage?`
+before sending ON. This uses the setting, not the measured output voltage, which
+can be zero while OFF even with a high retained setting. Unknown output state,
+failed zero-voltage writes, or unreadable/nonzero readback prevent ON.
+Omitting `max_voltage_v` retains the existing policy of no software voltage ceiling
+for subsequent voltage changes.
+
 The PMX manual describes `*CLS` as clearing event registers and the error queue;
 omitting it on connection preserves those records until normal status queries read them.
 See the [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf).

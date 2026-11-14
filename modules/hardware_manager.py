@@ -363,6 +363,12 @@ def worker(q: Queue):
                 if isinstance(communicator, SerialCommunicator):
                     allowed, error = check_max_voltage_allowed(port_id, communicator.SAFE_BASE_VOLTAGE_V)
                     response = communicator.turn_on() if allowed else f"ERROR:TURN_ON:{error}".encode()
+                elif isinstance(communicator, KikusuiCommunicator):
+                    with get_port_lock(port_id):
+                        allowed, error = check_max_voltage_allowed(port_id, communicator.SAFE_START_VOLTAGE_V)
+                        response = communicator.turn_on() if allowed else f"ERROR:TURN_ON:{error}".encode()
+                    if response.startswith(b'ERROR'):
+                        log("WARN", f"TURN_ON rejected port {port_id}: {response!r}")
                 else:
                     response = communicator.turn_on()
 

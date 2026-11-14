@@ -13,6 +13,7 @@ import math
 from modules.logger import log
 
 class KikusuiCommunicator:
+    SAFE_START_VOLTAGE_V = 0.0
     # --- Constants for Status Register Bits for PMX18-2A ---
     # From the STATus:OPERation register
     # Bit 4: CC mode (1 = is in CC mode)
@@ -90,6 +91,7 @@ class KikusuiCommunicator:
         """Private method to send a query command and get a response."""
         if self.is_test_mode:
             values = {'*IDN?': 'KIKUSUI,MOCK,0,0',
+                      'SOURce:VOLTage?': self._mock_voltage,
                       'MEASure:VOLTage?': self._mock_voltage if self._mock_is_on else 0.0,
                       'MEASure:CURRent?': self._mock_current_a if self._mock_is_on else 0.0,
                       'OUTPut:STATe?': int(self._mock_is_on),
@@ -113,9 +115,35 @@ class KikusuiCommunicator:
             return b"ERROR:VISA_QUERY_FAILED"
 
     # --- High-level device commands (Common Interface) ---
+
+    def get_voltage_setpoint(self) -> float:
+        """Read the retained setting, including while the output is OFF."""
+        response = self._query('SOURce:VOLTage?')
+        if not response or response.startswith(b'ERROR'):
+            raise ValueError(f'Cannot read voltage setpoint: {response!r}')
+        try:
+            voltage = float(response.decode('ascii'))
+        except (ValueError, UnicodeError) as error:
+            raise ValueError('Invalid voltage setpoint response') from error
+        if not math.isfinite(voltage) or voltage < 0:
+            raise ValueError('Voltage setpoint must be finite and non-negative')
+        return voltage
     
     def turn_on(self):
-        """Sends the OUTP ON command """
+        """Enable an OFF supply only after setting and verifying zero volts."""
+        state = self._query('OUTPut:STATe?')
+        if state == b'1':
+            return b'OK_ALREADY_ON'
+        if state != b'0':
+            return b'ERROR:TURN_ON:OUTPUT_STATE_UNKNOWN'
+        response = self.set_voltage(self.SAFE_START_VOLTAGE_V)
+        if not response or response.startswith(b'ERROR'):
+            return b'ERROR:TURN_ON:ZERO_VOLTAGE_WRITE_FAILED'
+        try:
+            if self.get_voltage_setpoint() != self.SAFE_START_VOLTAGE_V:
+                return b'ERROR:TURN_ON:ZERO_VOLTAGE_READBACK_MISMATCH'
+        except ValueError as error:
+            return f'ERROR:TURN_ON:{error}'.encode()
         if self.is_test_mode:
             self._mock_is_on = True
             log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating TURN_ON")
