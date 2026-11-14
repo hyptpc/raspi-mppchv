@@ -10,8 +10,8 @@ data/
 *.db-journal
 
 # Local deployment settings and development artifacts
-/config/config_hv1.yaml
-/config/config_hv2.yaml
+/config/config_*.yaml
+/hv_run.sh
 /.local-dev/
 /.venv/
 /logs/

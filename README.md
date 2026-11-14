@@ -136,7 +136,7 @@ databases:
   db_directory: data
   db_suffix: run001
 database_sync:
-  destination_directory: /home/sks/share/monitor-tmp
+  destination_directory: /path/to/shared/monitor-tmp
   interval_seconds: 5
 ```
 
@@ -162,19 +162,24 @@ empty when unused. No SQLite command-line program or hardware connection is need
 environment, then `$HOME/.venv`, then `python3`. Set `HV_PYTHON` to override the
 interpreter. The Python entry point is also available as `python -m modules.db_sync`.
 
-To run the controller and sync together in a split tmux window:
+To run the controller and sync together in a split tmux window, copy the generic
+launcher template once and select your config:
 
 ```bash
-./hv_run.sh --config config/config_hv1.yaml
+cp -n hv_run.sh.example hv_run.sh
+./hv_run.sh --config config/config.yaml
 tmux attach -t hv
 ```
 
 The left pane runs the controller; the right pane runs sync with the same config.
 Both panes restart their command if it exits. The launcher refuses to start a
-duplicate `hv` session. Without arguments it selects `config/config_hv1.yaml`,
-then `config/config_hv2.yaml` when present, otherwise `config/config.yaml`. Configure the sync destination
-before starting. Stopping the `hv` session stops both processes; the existing
-`hv_controller.service` can keep using `hv_run.sh` as its start command.
+duplicate `hv` session. The template defaults to `config/config.yaml`; use
+`--config PATH` or edit `CONFIG` in your local launcher for another configuration.
+`hv_run.sh` and deployment configs named `config/config_*.yaml` are ignored by Git.
+Existing local launchers can retain their deployment settings; repository updates
+manage only the template. Configure the sync destination before starting.
+Stopping the `hv` session stops both processes; an existing
+`hv_controller.service` can keep using its local `hv_run.sh` as the start command.
 
 If SQLite reports a locked database, use the same config:
 
