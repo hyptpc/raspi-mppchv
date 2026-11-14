@@ -34,7 +34,7 @@ class StatusUiTests(unittest.TestCase):
                               'is_hv_on': None, 'is_overcurrent': None, 'is_current_limit': None,
                               'is_temp_sensor_connected': None, 'is_temp_in_range': None,
                               'is_temp_correction_enabled': None}])
-        self.assertEqual(result['html'].count('>UNKNOWN<'), 6)
+        self.assertEqual(result['html'].count('>—<'), 6)
         self.assertNotIn('>OFF<', result['html'])
         self.assertNotIn('>OK<', result['html'])
         self.assertEqual(result['heading'], 'port-unknown')
@@ -51,7 +51,7 @@ class StatusUiTests(unittest.TestCase):
 
     def test_missing_or_non_boolean_values_are_unknown(self):
         result = self.render([{'port_id': 1, 'timestamp': '2026-11-13T12:00:00', 'is_hv_on': 0}])
-        self.assertEqual(result['html'].count('>UNKNOWN<'), 6)
+        self.assertEqual(result['html'].count('>—<'), 6)
         self.assertEqual(result['heading'], 'port-unknown')
 
     def test_no_recent_data_clears_old_on_colour(self):

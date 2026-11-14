@@ -223,7 +223,7 @@ function handleGraphToggle(portId, metric, element) {
  */
 function statusCell(value, trueText, falseText, trueClass, falseClass) {
     if (value !== true && value !== false) {
-        return '<td class="status-unknown">UNKNOWN</td>';
+        return '<td class="status-unknown" title="Unknown" aria-label="Unknown">—</td>';
     }
     return `<td class="${value ? trueClass : falseClass}">${value ? trueText : falseText}</td>`;
 }
