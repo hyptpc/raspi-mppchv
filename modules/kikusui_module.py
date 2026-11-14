@@ -63,12 +63,10 @@ class KikusuiCommunicator:
             self.instrument = rm.open_resource(self.resource_string)
             self.instrument.timeout = 5000 # Set a 5-second timeout
             
-            # --- MODIFIED ---
-            # Do NOT send *RST on connect. Only clear errors.
-            self.instrument.write('*CLS')
+            # Reconnecting must preserve an already-running supply and its events.
+            # Identification is a query; do not reset or clear the instrument here.
             idn = self.instrument.query('*IDN?')
             log("INFO", f"[Kikusui] Successfully connected to {self.resource_string}. ID: {idn.strip()}")
-            # --- END MOD ---
             
         except pyvisa.errors.VisaIOError as e:
             log("ERROR", f"[Kikusui] FATAL: Could not open {self.resource_string}. {e}")

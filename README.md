@@ -196,6 +196,20 @@ Close the process holding the lock and retry; a successful check cannot prevent
 another process from acquiring a lock afterward. The controller and HV outputs
 are not operated by this helper. Interpreter selection matches `sync_db.sh`.
 
+## Kikusui startup
+
+Connecting or restarting the controller only queries `*IDN?` on Kikusui supplies.
+Startup does not send output commands, voltage/current settings, `*RST`, or `*CLS`.
+The controller does not change the existing ON/OFF state or output setpoints.
+Monitoring reads the existing state without setting output levels. Software startup
+does not restore previous settings or turn outputs back on after a power loss.
+
+The PMX manual describes `*CLS` as clearing event registers and the error queue;
+omitting it on connection preserves those records until normal status queries read them.
+See the [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf).
+
+Serial modules use the separate startup initialization below.
+
 ## Serial startup
 
 Before starting the server and command worker, each serial HV device receives `HOF`
