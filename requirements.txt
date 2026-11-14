@@ -6,3 +6,4 @@ pyserial
 pyyaml
 pyvisa
 pyvisa-py
+quickjs

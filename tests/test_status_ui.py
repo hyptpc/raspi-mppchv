@@ -8,7 +8,7 @@ except ImportError:
     quickjs = None
 
 
-@unittest.skipIf(quickjs is None, 'Install requirements-dev.txt to run JavaScript rendering tests')
+@unittest.skipIf(quickjs is None, 'Install requirements.txt to run JavaScript rendering tests')
 class StatusUiTests(unittest.TestCase):
     def setUp(self):
         self.context = quickjs.Context()

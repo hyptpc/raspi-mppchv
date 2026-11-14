@@ -264,7 +264,7 @@ databases and avoid mixing units with historical measurements.
 
 ## Validation
 
-Install `requirements-dev.txt` to include JavaScript rendering tests, then run:
+Install `requirements.txt`, then run:
 
 ```bash
 python -m unittest discover -s tests -v
