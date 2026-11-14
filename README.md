@@ -213,6 +213,12 @@ failed zero-voltage writes, or unreadable/nonzero readback prevent ON.
 Omitting `max_voltage_v` retains the existing policy of no software voltage ceiling
 for subsequent voltage changes.
 
+Explicit Kikusui `RESET` and `CLEAR_TRIP` both send only
+`OUTPut:PROTection:CLEar` to clear a protection alarm. They do not send `*RST`,
+`*CLS`, ON/OFF commands, or voltage/current/protection-setting changes.
+Remove the cause of an alarm before clearing it. Turning output on is a separate
+explicit operation; RESET does not automatically send ON.
+
 The PMX manual describes `*CLS` as clearing event registers and the error queue;
 omitting it on connection preserves those records until normal status queries read them.
 See the [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf).

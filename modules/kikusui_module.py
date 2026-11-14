@@ -159,14 +159,8 @@ class KikusuiCommunicator:
         return self._write("OUTPut:STATe OFF")
 
     def reset_device(self):
-        """Sends *RST (Reset) and *CLS (Clear Status)."""
-        if self.is_test_mode:
-            self._mock_is_on = False
-            self._mock_voltage = 0.0
-            log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating RESET")
-            return b"OK_RST"
-        # Reset and clear can be combined in a single write.
-        return self._write("*RST; *CLS")
+        """Clear a protection alarm without resetting output settings."""
+        return self.clear_protection_trip()
 
     @classmethod
     def validate_raw_command(cls, command_str: str) -> str | None:
