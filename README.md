@@ -1,132 +1,200 @@
-# MPPC High Voltage Module Controller
+# MPPC HV Controller
 
-## Description
+A web interface for Hamamatsu C11204-01 HV modules over serial ports and
+Kikusui PMX-A supplies over LAN/VISA. It provides voltage ramps, output control,
+voltage/current/temperature monitoring, and SQLite measurement and action logs.
 
-This application provides a web-based interface to control and monitor Hamamatsu C11204-01 MPPC HV modules over serial ports and Kikusui PMX-A power supplies over LAN/VISA. It supports voltage ramps, explicit output ON/OFF operations, measurements, and separate databases for monitoring data and user actions. Temperature measurements come from serial modules, optionally mapped to Kikusui channels.
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Operation](#operation)
+- [Database files and runs](#database-files-and-runs)
+- [Database sync](#database-sync)
+- [Running in tmux](#running-in-tmux)
+- [Database lock recovery](#database-lock-recovery)
+- [Protocol notes](#protocol-notes)
+- [Development](#development)
 
-## Directory Structure 📁
+## Quick start
 
-```
-raspi-mppchv/
-├── main.py                     # Main application entry point (FastAPI server)
-├── config/
-│   └── config.yaml             # Configuration file
-├── data/                       # Stores database files (created automatically)
-├── static/
-│   ├── index.html              # Main Web UI file
-│   ├── style.css               # CSS styles
-│   ├── script.js               # JavaScript for UI logic and charts
-│   ├── chart.umd.js            # Local Chart.js library
-│   └── chartjs-adapter-date-fns.bundle.min.js # Local date adapter
-├── modules/
-│   ├── __init__.py             # Makes 'modules' a Python package
-│   ├── hamahoto_module.py      # Hamamatsu serial protocol and initialization
-│   ├── kikusui_module.py       # Kikusui PMX-A communication
-│   ├── hardware_manager.py     # Command worker, ramps, and safety checks
-│   ├── db_measurements.py      # Database logic for monitoring data
-│   ├── db_logs.py              # Database logic for action logs
-│   ├── db_runs.py              # Shared database naming and fresh runs
-│   ├── db_sync.py              # Optional SQLite snapshot helper
-│   ├── db_unlock.py            # SQLite lock/recovery checks
-│   └── logger.py               # Logging setup
-├── hv_run.sh.example           # Generic controller/sync tmux launcher template
-├── sync_db.sh                  # Standalone snapshot launcher
-├── db_unlock.sh                # Standalone lock-check launcher
-├── tests/                      # Automated tests using simulated hardware
-└── requirements.txt            # Python dependencies
-```
-
-## Setup & Installation ⚙️
-
-Use Python 3.11 or newer.
-
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/hyptpc/raspi-mppchv.git
-    cd raspi-mppchv
-    ```
-
-2.  **Create & Activate Virtual Environment (Recommended):**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
-    ```
-
-3.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Configure:**
-    * Edit `config/config.yaml` to match your setup:
-        * Set each `devices` entry's `id`, `type`, and `connection`. Use `serial_hv` with a device path (e.g., `/dev/ttyUSB0`), or `kikusui_visa` with a supply IP address.
-        * Set `max_voltage_v` per voltage-control channel to match the connected load and the supply's supported range. Omitting it leaves no channel-specific software ceiling.
-        * Adjust `general.monitoring_interval` if needed.
-        * Set `test_mode.enabled` to `false` for use with real hardware.
-        * Change `server.host` and `server.port` if necessary.
-
-5.  **Initialize Databases:**
-    Create a new named database pair without connecting to hardware:
-    ```bash
-    python main.py --new-db run001 --init-db-only
-    ```
-
-## Usage ▶️
-
-1.  **Start the Server:**
-    Navigate to the `raspi-mppchv` repository directory in your terminal and run:
-    ```bash
-    python main.py --config config/config.yaml
-    ```
-    (You can omit `--config config/config.yaml` if the file is in the default location). The server will log the host and port it's running on (e.g., `0.0.0.0:8000`).
-
-2.  **Access the Web UI:**
-
-    * **From the Same Local Network:**
-        Open a web browser on a device connected to the **same local network** as the server and navigate to:
-        `http://<server-ip-address>:<port>`
-        (e.g., `http://192.168.20.5:8000`, using the host and port defined in `config.yaml` or logged by the server).
-
-    * **From an External Network (using SSH Tunnel):**
-        If your access device (e.g., your laptop) is *not* on the same network as the server, but you can SSH into the server:
-        1.  Keep the server running on the server machine.
-        2.  Open a **new terminal on your local machine** (e.g., your laptop) and establish an SSH tunnel with the following command:
-            ```bash
-            ssh -L <local_port>:localhost:<server_port> <username>@<server_ip_address>
-            ```
-            * Replace `<local_port>` with an unused port on your local machine (e.g., `8080`).
-            * Replace `<server_port>` with the port the server is running on (usually `8000`).
-            * Replace `<username>@<server_ip_address>` with your SSH login details for the server (e.g., `pi@192.168.20.5`).
-            * **Example:** `ssh -L 8080:localhost:8000 pi@192.168.20.5`
-        3.  Keep this SSH terminal window open.
-        4.  Open a web browser on your **local machine** and navigate to:
-            `http://localhost:<local_port>`
-            (e.g., `http://localhost:8080`)
-
-3.  **Use the Interface:**
-    * Use the "Structured Commands" panel for common actions.
-    * Use the "Raw Command" panel for the approved queries and serial OFF command listed below.
-    * Monitor status in the top-right panels.
-    * View live data trends in the charts below.
-    * Use the "Graph Display" toggles to show/hide specific data series.
-    * Access historical monitoring data via the "View Raw Data Log" link.
-    * Access command history via the "View Action Log" link.
-
-
-## Database runs
+Requirements: Python 3.11 or newer. The tmux launcher additionally requires tmux.
+The supplied config starts in **test mode**, using simulated devices without
+opening serial or VISA connections.
 
 ```bash
-python main.py --new-db                    # Create a pair with a date/identifier and start
-python main.py --new-db run001             # Create a named pair and start
-python main.py --new-db run001 --init-db-only  # Create schemas without hardware or server
+git clone https://github.com/hyptpc/raspi-mppchv.git
+cd raspi-mppchv
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp -n config/config.yaml config/config_site.yaml
+python main.py --config config/config_site.yaml
 ```
 
-Files are created under `databases.db_directory`. Named runs refuse either existing
-file rather than overwriting or resuming it. The selected suffix and paths are logged.
-To resume a run, set `databases.db_suffix` to its suffix and start without `--new-db`.
-`--init-db-only` can also initialize the configured pair without starting hardware.
+On Windows, activate the environment with `.venv\Scripts\activate`.
+Run application commands from the repository directory. Examples below use
+`config/config_site.yaml`; substitute your deployment config as needed.
 
-Both filenames use the same `databases.db_suffix` setting:
+Open `http://localhost:8000` on the server, or `http://<server-address>:8000`
+from the same network. The address and port depend on the `server` settings.
+
+For access through SSH, run this on your local computer:
+
+```bash
+ssh -N -L 8080:localhost:8000 user@server
+```
+
+Keep the tunnel open and browse to `http://localhost:8080`.
+
+Before using real hardware, configure the device connections and voltage limits,
+then set `test_mode.enabled: false`. **Starting or restarting a controller that
+includes serial HV modules sends OFF initialization commands.** Kikusui connections
+preserve existing output state and setpoints. See [Operation](#operation) before
+starting a real deployment.
+
+## Configuration
+
+Use [config/config.yaml](config/config.yaml) as the template. Local deployment
+configs named `config/config_*.yaml` are ignored by Git.
+
+| Setting | Purpose |
+|---|---|
+| `devices` | Unique device IDs, device types, connections, and per-channel voltage limits |
+| `port_labels` | Display names for device IDs 0–3 |
+| `device_mappings` | Primary device ID → serial module ID supplying its temperature data |
+| `general.monitoring_interval` | Background monitoring interval in seconds |
+| `general.display_time_window_minutes` | Chart history window in minutes |
+| `general.ramp_voltage_target_v_per_s` | Target ramp rate in V/s |
+| `general.ramp_voltage_max_step_v` | Maximum change per ramp step in V |
+| `general.ramp_pad_step_to_target_rate` | Add waiting time on fast links to maintain the target ramp rate |
+| `server.host`, `server.port` | Listening address and port |
+| `databases.db_directory`, `databases.db_suffix` | Local database directory and shared filename suffix |
+| `database_sync.destination_directory` | Optional location for database copies |
+| `test_mode.enabled` | `true` for simulated devices; `false` for hardware |
+
+A device uses `serial_hv` with a serial device path, or `kikusui_visa` with a
+supply IP address. For example:
+
+```yaml
+devices:
+  - id: 0
+    type: serial_hv
+    connection: /dev/ttyUSB0
+    max_voltage_v: 58.5
+  - id: 1
+    type: kikusui_visa
+    connection: 192.168.1.100
+    max_voltage_v: 58.5
+
+port_labels:
+  0: Serial HV
+  1: Kikusui HV
+```
+
+Replace the example connections and limits with values appropriate for the
+connected supplies and loads. Omitting `max_voltage_v` leaves no channel-specific
+software ceiling. The limit is checked when a voltage request is accepted and
+again before execution; it also applies to the starting voltage for ON commands.
+It does not configure the supply's hardware overvoltage protection (OVP).
+
+For temperature mapping, list the sensor module in `devices` and map its ID in
+`device_mappings`. Only temperature data and temperature flags are merged;
+voltage, current, and output/protection state come from the primary supply.
+Device IDs outside 0–3 are hidden from the normal UI selectors but remain
+addressable through the API.
+
+Controller configuration changes take effect after a process restart. The sync
+helper independently reloads its config before each copy cycle.
+
+## Operation
+
+The behavior differs between the two device types:
+
+| Action | Serial HV module | Kikusui PMX-A |
+|---|---|---|
+| Start or restart | Initialize output OFF and temperature correction OFF; verify stored parameters | Connect and read identification; preserve output state and setpoints |
+| `TURN_ON` | Repeat OFF initialization, set approximately 20.5 V, then turn ON | If OFF, set and verify 0 V before ON; an already-ON supply is left alone |
+| `SET_VOLTAGE` | Ramp within 20–90 V and the configured channel limit | Ramp to the target within the configured channel limit |
+| `TURN_OFF` | Ramp down to 20.5 V when needed, then OFF | Ramp down to 0 V when needed, then OFF |
+| `RESET` | Repeat OFF initialization and parameter verification | Clear the protection alarm only, like `CLEAR_TRIP` |
+
+Repeating serial `TURN_ON` while already ON restarts the output at the low starting
+voltage. Kikusui software startup does not restore settings or turn the output ON
+after a hardware power loss.
+
+### Web interface
+
+Use **Structured Commands** for control and **Graph Display** to select chart
+series. **View Raw Data Log** shows recent measurement records;
+**View Action Log** shows command results.
+
+Sending a command acknowledges that it was queued. Check the action log for its
+execution result, including responses beginning with `ERROR`.
+
+| Value | Unit |
+|---|---|
+| Measured and requested voltage | V |
+| Measured current, status display, and current graph | mA |
+| Current-limit and OCP threshold inputs | A |
+| Temperature | °C |
+
+Unknown or unavailable status appears as a gray `—`, with `Unknown` in its tooltip
+and accessible label. It is not interpreted as OFF or OK.
+
+### Ramps and OFF requests
+
+The default ramp rate is 5 V/s. Each ramp writes successive setpoints and monitors
+the result. With `ramp_pad_step_to_target_rate: true`, fast communication includes
+waiting time to maintain the requested rate. Steps are sized from the previous
+cycle duration and capped by `ramp_voltage_max_step_v`; the first cycle uses
+`ramp_voltage_default_cycle_s`.
+
+With the default `require_on_for_voltage_increase: true`, an increase requires
+confirmed output ON. Invalid measurements or command failures stop further ramp
+steps. An explicit OFF operation still attempts OFF if its ramp-down fails.
+
+Commands run in one queue. **An OFF request waits behind an active ramp; it does
+not interrupt it.** Use `TURN_OFF` to disable serial output, since a 0 V voltage
+request is outside its supported range.
+
+The browser refreshes every two seconds. Several ramp steps can therefore appear
+at once, and the instrument may return repeated measurements between its own
+measurement updates. Compare recorded timestamps when examining a ramp.
+
+### Kikusui current limit and OCP
+
+`SET_CURRENT` sets the constant-current limit in A.
+**SET OCP LEVEL (Kikusui)** sets the overcurrent protection threshold in A.
+Its API name remains `ENABLE_OCP` for compatibility; it sets a threshold rather
+than toggling protection.
+
+OCP levels must be finite and positive. PMX specifies 10–110% of the model's rated
+current. The controller writes the threshold and reads it back before reporting
+success. Unavailable, invalid, or mismatched readback produces an error; a setting
+already applied to the supply is not automatically rolled back or reset.
+
+PMX has no documented OCP enable/disable switch command. The UI has no disable
+action, and `DISABLE_OCP` requests are rejected without sending device commands.
+Startup leaves current-limit and OCP settings unchanged. Threshold readback checks
+the setting, not the physical operation of the protection circuit.
+
+### Raw commands
+
+Only the following raw commands are allowed. Case and surrounding whitespace are
+normalized; compound commands are rejected by both the API and device adapters.
+
+| Device | Approved commands |
+|---|---|
+| Serial | `HRT`, `HPO`, `HGS`, `HGV`, `HGC`, `HGT`, `HOF` |
+| Kikusui | `*IDN?`, `MEAS:VOLT?`, `MEAS:CURR?`, `OUTP?`, `OUTP:STAT?`, `STAT:OPER:COND?`, `STAT:QUES:EVEN?`, and their fully spelled forms |
+
+`HOF` requests serial output OFF directly. `STAT:QUES:EVEN?` reads and clears the
+Kikusui questionable event register. Normal monitoring uses condition registers
+and preserves event history. Raw query responses are consumed and recorded in the
+action log.
+
+## Database files and runs
+
+Measurements and actions share the suffix in the selected config:
 
 ```yaml
 databases:
@@ -134,251 +202,171 @@ databases:
   db_suffix: run001
 ```
 
-This selects `data/measurements_run001.db` and `data/action_log_run001.db` together.
-An empty suffix selects `measurements.db` and `action_log.db`. Database creation,
-application connections, and snapshot helpers share the same filename resolver.
+This selects `data/measurements_run001.db` and `data/action_log_run001.db`.
+An empty suffix selects `measurements.db` and `action_log.db`. Normal startup
+creates missing tables and continues using existing files.
 
-## Optional database copies
+To prepare a new named pair without starting hardware or the web server:
 
-The application does not start synchronization automatically. To keep recording
-locally and publish copies elsewhere, configure a destination:
+```bash
+python main.py --config config/config_site.yaml --new-db run002 --init-db-only
+```
+
+Set `databases.db_suffix: run002` in the config, then start normally. This also
+keeps the sync helper pointed at the same pair.
+
+`--new-db` without a name generates a suffix. Omitting `--init-db-only` creates
+the pair and starts the controller. A new run refuses either existing filename;
+it does not overwrite or resume an existing pair. To resume one, select its suffix
+in the config and start without `--new-db`.
+
+`--init-db-only` can also initialize the configured pair without `--new-db`.
+If a run is selected only through `--new-db`, copy its printed suffix into the
+config or pass it to sync with `--suffix`.
+
+Older versions stored Kikusui current in A. Those historical rows are left
+unchanged. Use a fresh suffix when migrating from that format to avoid mixing A
+and mA in the same measurement history.
+
+## Database sync
+
+Sync is optional and runs separately from the controller. Keep the working DBs
+local and configure a destination for snapshots:
 
 ```yaml
-databases:
-  db_directory: data
-  db_suffix: run001
 database_sync:
   destination_directory: /path/to/shared/monitor-tmp
   interval_seconds: 5
 ```
 
 ```bash
-./sync_db.sh --config config/config.yaml --dry-run  # Preview both source/target paths
-./sync_db.sh --config config/config.yaml            # Repeat until Ctrl+C; reload config each cycle
-./sync_db.sh --config config/config.yaml --once     # Optional single copy
-./sync_db.sh --config config/config.yaml --destination /some/other/folder --suffix run002 --once
+./sync_db.sh --config config/config_site.yaml --dry-run
+./sync_db.sh --config config/config_site.yaml
 ```
 
-Each copy uses SQLite's online backup API, including committed WAL data. Both
-snapshots are created and checked before publishing either file; each destination
-file is replaced atomically. Sources and unrelated destination files are retained.
-The databases are independent, so their snapshots are not one cross-database transaction.
-Use the destination as a read-only copy location, rather than another app's writable DB directory.
+The first command previews source and destination paths. The second keeps copying
+both databases until Ctrl+C, reloading the config each cycle. Use `--once` for a
+single copy. `--destination`, `--suffix`, and `--interval` override the config.
+Leave the destination empty when sync is unused.
 
-The helper reads `databases.db_directory` and `databases.db_suffix` from the same
-config as the controller. After using `--new-db`, either set that run's suffix in
-the config or pass its printed suffix with `--suffix`. Leave the sync destination
-empty when unused. No SQLite command-line program or hardware connection is needed.
+Copies use SQLite's online backup API, including committed WAL data. Both files
+are staged and checked before publication; each destination file is replaced
+atomically. The pair is not one cross-database transaction. Sources and unrelated
+destination files are retained.
 
-`sync_db.sh` runs from the repository directory and selects the project virtual
-environment, then `$HOME/.venv`, then `python3`. Set `HV_PYTHON` to override the
-interpreter. The Python entry point is also available as `python -m modules.db_sync`.
+Use a dedicated snapshot destination rather than another application's writable
+DB directory. Readers should reopen snapshots to see subsequent replacements.
 
-To run the controller and sync together in a split tmux window, copy the generic
-launcher template once and select your config:
+Shell helpers select `.venv/bin/python`, then `$HOME/.venv/bin/python`, then
+`python3`. Set `HV_PYTHON` to override this. `sync_db.sh` and `db_unlock.sh` run from
+the repository directory; the Python entry points are `modules.db_sync` and
+`modules.db_unlock`.
+
+## Running in tmux
+
+Configure the sync destination first, then create a local launcher:
 
 ```bash
 cp -n hv_run.sh.example hv_run.sh
-./hv_run.sh --config config/config.yaml
+./hv_run.sh --config config/config_site.yaml
 tmux attach -t hv
 ```
 
-The left pane runs the controller; the right pane runs sync with the same config.
-Both panes restart their command if it exits. The launcher refuses to start a
-duplicate `hv` session. The template defaults to `config/config.yaml`; use
-`--config PATH` or edit `CONFIG` in your local launcher for another configuration.
-`hv_run.sh` and deployment configs named `config/config_*.yaml` are ignored by Git.
-Existing local launchers can retain their deployment settings; repository updates
-manage only the template. Configure the sync destination before starting.
-Stopping the `hv` session stops both processes; an existing
-`hv_controller.service` can keep using its local `hv_run.sh` as the start command.
+The controller runs on the left and sync on the right. Detach with Ctrl+B, then D.
+Each pane restarts its command after it exits. The launcher refuses an existing
+session with the same name.
 
-If SQLite reports a locked database, use the same config:
+The template defaults to session `hv` and config `config/config.yaml`. Edit
+`SESSION_NAME` and `CONFIG` in your local launcher for a deployment, or pass
+`--config PATH` when starting. Local `hv_run.sh` is ignored by Git; updates change
+only `hv_run.sh.example`. An existing `hv_controller.service` can continue using
+its local launcher.
+
+Stopping the tmux session stops both processes. Stopping the software does not
+itself request HV OFF. Starting it again applies the device-specific startup
+behavior in [Operation](#operation), including serial OFF initialization.
+
+## Database lock recovery
 
 ```bash
-./db_unlock.sh --config config/config.yaml
+./db_unlock.sh --config config/config_site.yaml
 ```
 
-This checks both databases, waiting up to five seconds for each lock operation.
-SQLite handles journal recovery; WAL databases also receive a truncate checkpoint.
-The helper never kills processes or manually deletes database/journal files.
-An active process must release its own lock. On failure, the helper returns a
-nonzero status and lists processes using the files when `fuser` is available.
-Close the process holding the lock and retry; a successful check cannot prevent
-another process from acquiring a lock afterward. The controller and HV outputs
-are not operated by this helper. Interpreter selection matches `sync_db.sh`.
+The helper checks both configured databases, waiting up to five seconds for each
+lock operation. SQLite handles journal recovery; WAL databases also receive a
+truncate checkpoint. No HV connection is opened.
 
-## Kikusui startup
+On failure, it returns a nonzero status and, when `fuser` is available, lists
+processes using the files. These are not necessarily the lock owners. Close the
+process holding the lock and retry. The helper does not kill processes or manually
+delete databases or journal files, and a successful check cannot prevent a later
+lock.
 
-Connecting or restarting the controller only queries `*IDN?` on Kikusui supplies.
-Startup does not send output commands, voltage/current settings, `*RST`, or `*CLS`.
-The controller does not change the existing ON/OFF state or output setpoints.
-Monitoring reads the existing state without setting output levels. Software startup
-does not restore previous settings or turn outputs back on after a power loss.
+## Protocol notes
 
-An explicit Kikusui `TURN_ON` checks that the 0 V start value is allowed by
-`max_voltage_v`, then queries the output state. An already-ON supply is left alone.
-For an OFF supply, it sets 0 V and verifies the setting with `SOURce:VOLTage?`
-before sending ON. This uses the setting, not the measured output voltage, which
-can be zero while OFF even with a high retained setting. Unknown output state,
-failed zero-voltage writes, or unreadable/nonzero readback prevent ON.
-Omitting `max_voltage_v` retains the existing policy of no software voltage ceiling
-for subsequent voltage changes.
+These details explain the device-specific behavior above.
 
-Explicit Kikusui `RESET` and `CLEAR_TRIP` both send only
-`OUTPut:PROTection:CLEar` to clear a protection alarm. They do not send `*RST`,
-`*CLS`, ON/OFF commands, or voltage/current/protection-setting changes.
-Remove the cause of an alarm before clearing it. Turning output on is a separate
-explicit operation; RESET does not automatically send ON.
+### Hamamatsu serial initialization
 
-The PMX manual describes `*CLS` as clearing event registers and the error queue.
-Connection and normal monitoring preserve these records: monitoring reads the
-OPERation and QUEStionable condition registers. An explicit raw
-`STAT:QUES:EVEN?` query reads and clears the questionable event register.
-See the [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf).
+Startup sends `HOF` and `HCM0`, verifies output OFF and correction OFF using `HGS`,
+and reads the six parameter words with `HRT`. If they differ from the required
+values, `HST` persistently stores four zero temperature coefficients, a base
+voltage of approximately 20.5 V, and a base temperature of approximately 25 °C.
+Matching parameters skip the persistent write. Changed parameters are read back,
+and OFF status is checked again before the server starts.
 
-Serial modules use the separate startup initialization below.
+Initialization failures trigger another OFF attempt and prevent server startup.
+Serial `TURN_ON` repeats initialization, replaces the temporary voltage setting
+with approximately 20.5 V, sends `HON`, and verifies output ON with correction OFF.
+Failures trigger an OFF attempt. `RESET` repeats initialization without `HRE`.
+If monitoring detects correction enabled, it requests OFF and records an error;
+subsequent monitoring is needed to confirm the resulting output state.
 
-## Kikusui status and OCP settings
+Parameter ordering and conversions follow K29-B61218K sections 3 and 4-1/4-2.
+Hardware power-on and `HRE` enable output, so software cannot keep it OFF before
+communication is established.
 
-CC mode uses OPERation bit 10; active OCP uses QUEStionable bit 1, following
-the PMX interface manual pp.105/123. QUEStionable bit 4 represents overtemperature,
-not OCP. Normal monitoring uses `STATus:QUEStionable:CONDition?`, so a persistent
-OCP condition remains visible across polls without clearing event history.
-Malformed output-state or status-register responses are recorded as monitoring
-errors, with unknown HV/protection status.
+The manual's status table and example define sensor bit 3 as 1 = connected, while
+section 5-4 describes the inverse. The implementation retains the table/example
+convention. Correction protection uses bit 6 independently; sensor wiring should
+not be inferred solely from bit 3.
 
-The UI action **SET OCP LEVEL (Kikusui)** sets the OCP threshold in A. Its API
-command name remains `ENABLE_OCP` for compatibility; it does not toggle protection.
-It sends `CURRent:PROTection:LEVel <value>` and reads
-`CURRent:PROTection:LEVel?` to verify the applied threshold. Invalid, unavailable,
-or mismatched readback returns an error. A readback failure leaves the supply's
-applied setting in place; it does not trigger an automatic rollback or reset.
+### Kikusui PMX status
 
-The threshold must be finite and positive. PMX specifies a setting range of
-10–110% of rated output current (manual p.93); the usable values depend on the
-connected model. Device rounding or rejection is reported through readback
-verification. This checks the setting, not physical protection operation.
+The [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf)
+defines CC mode as OPERation bit 10 and active OCP as QUEStionable bit 1
+(pp.105/123). QUEStionable bit 4 is overtemperature. Monitoring reads
+`STATus:OPERation:CONDition?` and `STATus:QUEStionable:CONDition?` so an active OCP
+condition remains visible across polls. Malformed output-state or status-register
+responses are treated as monitoring errors.
 
-PMX has no documented `CURRent:PROTection:STATe` ON/OFF operation. The UI offers
-no disable action, and `DISABLE_OCP` requests are rejected without sending commands.
-Startup and reconnection leave current-limit and OCP settings unchanged.
+Connection only queries `*IDN?`. Startup sends no output/setpoint commands,
+`*RST`, or `*CLS`. Explicit `RESET` and `CLEAR_TRIP` send only
+`OUTPut:PROTection:CLEar`. Remove the alarm's cause before clearing it;
+turning ON is a separate operation.
 
-## Voltage ramps and limits
-
-`general.ramp_voltage_target_v_per_s` sets the target ramp rate. With
-`ramp_pad_step_to_target_rate: true`, each step includes any necessary wait so
-fast communication does not bypass the requested timing. The default first step
-uses `ramp_voltage_default_cycle_s`; later steps use the previous cycle duration,
-with changes capped by `ramp_voltage_max_step_v`. Ramps are a series of setpoint
-changes, not a hardware-generated continuous waveform.
-
-`devices[].max_voltage_v` is checked before accepting a voltage request and again
-in the command worker. It also applies to the low starting voltage for explicit
-ON commands. These are application checks; they do not configure the supply's
-hardware OVP setting. Configuration changes take effect when the controller
-process restarts. Kikusui restart preserves output state and setpoints; serial
-restart performs the OFF initialization described below.
-
-Commands execute in one queue. An OFF request waits for an active ramp or other
-command to finish; it is not an interrupt. Ramp errors stop further upward steps.
-An explicit OFF operation attempts OFF even if its preceding ramp-down fails.
-
-The browser refreshes every two seconds. It may show several ramp steps at once,
-and the instrument's measurement update interval can also produce repeated values.
-Use the recorded measurement timestamps when examining a ramp.
-
-## Serial startup
-
-Before starting the server and command worker, each serial HV device receives `HOF`
-and `HCM0`. Startup verifies output OFF and correction OFF with `HGS`, then reads
-the six parameter words with `HRT`.
-
-If needed, `HST` persistently sets all four temperature coefficients to zero,
-the base voltage to approximately 20.5 V, and the base temperature to approximately
-25 °C. Startup reads back changed parameters and checks OFF status again. Matching
-parameters skip the persistent write. Any failure triggers another OFF attempt
-and prevents server startup. Test mode simulates initialization without serial I/O.
-
-For serial devices, `RESET` repeats this OFF and parameter-verification procedure.
-It does not send `HRE` or enable HV output. Reset failures are recorded in the
-action log, and existing matching parameters skip persistent writes.
-
-Serial `TURN_ON` also repeats verification, overwrites the temporary voltage
-setpoint with approximately 20.5 V while OFF, then sends `HON` and verifies output
-ON with correction OFF. Repeating ON while already ON restarts at this low voltage.
-Any failure triggers an OFF attempt and returns an error.
-
-If serial monitoring detects correction enabled, it requests output OFF and records
-the monitor sample as an error. A successful OFF acknowledgement is not treated as
-proof of the subsequent output state; later monitoring supplies that state.
-
-The parameter order and conversions follow K29-B61218K sections 3, 4-1 and 4-2.
-Hardware power-on and `HRE` enable HV output; startup initialization cannot keep
-output OFF before communication is established.
-
-The K29-B61218K status table (section 5, p.19) and example (section 4-4, p.10)
-define sensor bit 3 as 1 = connected, but section 5-4 (p.20) describes the inverse.
-The sensor display and temperature conversion retain the table/example convention;
-the correction interlock uses bit 6 and does not depend on bit 3. The documentation
-conflict remains unresolved pending confirmation against known sensor wiring or
-manufacturer clarification. Do not infer sensor wiring solely from this flag.
-
-Mock devices start with output OFF and retain ON/OFF and voltage settings. Serial
-mocks generate protocol frames and run the same response parser and interlocks as
-hardware. Kikusui mock queries reflect the same state as monitoring. Mock devices
-model no load by default and never open serial or VISA connections.
-
-## Raw commands
-
-Serial raw commands are limited to `HRT`, `HPO`, `HGS`, `HGV`, `HGC`, `HGT`, and
-`HOF`. Configuration changes, ON, and hardware reset commands are rejected.
-
-Kikusui raw commands are limited to `*IDN?`, `MEAS:VOLT?`, `MEAS:CURR?`,
-`OUTP?` / `OUTP:STAT?`, `STAT:OPER:COND?`, and `STAT:QUES:EVEN?`, plus their
-fully spelled forms. Query responses are read and recorded in the action log.
-Raw commands ignore case and surrounding whitespace; compound commands are rejected.
-Both the API and device adapters enforce these restrictions.
-
-## Measurement units
-
-Serial voltage requests must be within 20–90 V and the configured channel limit.
-Serial OFF ramps down to 20.5 V before OFF; Kikusui OFF ramps down to 0 V.
-Use `TURN_OFF`, rather than a zero-voltage request, to disable a serial output.
-
-Measured current is stored and displayed in mA for both serial and Kikusui devices.
-Kikusui current readings are converted from A to mA before rounding. Current and OCP
-setpoints still use A.
-
-Existing Kikusui measurement rows retain their original values in A. Before collecting
-Kikusui data with this change, select an unused `databases.db_suffix` to create fresh
-databases and avoid mixing units with historical measurements.
-
-## Validation
-
-Install `requirements.txt`, then run:
+## Development
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Unknown or missing monitoring status is displayed as a gray `—`, including HV,
-protection, and temperature flags. The cell's tooltip and accessible label say
-`Unknown`; it is not displayed as OFF or OK. Tests cover simulated responses and
-command failures without operating real hardware; they do not verify the physical
-operation of a supply's protection circuits.
+Tests use simulated devices and injected communication failures without operating
+hardware. They do not verify physical protection circuits. Mock devices start OFF,
+retain output/setpoint state, and model no load by default. Serial mocks use the
+same protocol parser and interlocks as hardware.
 
-## Dependencies 📦
+| Path | Contents |
+|---|---|
+| `main.py` | Configuration, API, and startup |
+| `modules/hamahoto_module.py`, `modules/kikusui_module.py` | Device adapters |
+| `modules/hardware_manager.py` | Command queue, ramps, and safety checks |
+| `modules/db_*.py` | Database storage, naming, sync, and lock checks |
+| `static/` | Web UI and local Chart.js libraries |
+| `config/config.yaml` | Shared example config |
+| `hv_run.sh.example` | Generic tmux launcher template |
+| `sync_db.sh`, `db_unlock.sh` | Standalone database helpers |
+| `tests/` | Automated tests |
 
-* FastAPI: Web framework
-* Uvicorn: ASGI server
-* SQLAlchemy: Database interaction (ORM)
-* PySerial: Serial port communication
-* PyYAML: Reading YAML configuration files
-* PyVISA & pyvisa-py: Kikusui VISA communication
-* QuickJS: JavaScript status-rendering tests
-* Chart.js & chartjs-adapter-date-fns: Front-end charting libraries served from `static/`
-
-## License 📜
-
-This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+Python dependencies are listed in [requirements.txt](requirements.txt).
+The project is distributed under the [MIT License](LICENSE).
