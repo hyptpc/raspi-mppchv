@@ -1,5 +1,7 @@
 # Python 3.11+ (PEP 604 union types: float | None, etc.)
-fastapi
+# Security baseline validated with the controller's simulated hardware tests.
+fastapi>=0.162.7
+starlette>=1.10.0
 uvicorn[standard]
 sqlalchemy
 pyserial
