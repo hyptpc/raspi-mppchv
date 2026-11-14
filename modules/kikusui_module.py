@@ -14,14 +14,9 @@ from modules.logger import log
 
 class KikusuiCommunicator:
     SAFE_START_VOLTAGE_V = 0.0
-    # --- Constants for Status Register Bits for PMX18-2A ---
-    # From the STATus:OPERation register
-    # Bit 4: CC mode (1 = is in CC mode)
-    CC_MODE_BIT = 4
-
-    # From the STATus:QUEStionable register
-    # Bit 4: OCP (1 = OCP has tripped)
-    OCP_TRIP_BIT = 4
+    # PMX interface manual, pp.105/123: OPER bit 10 = CC; QUES bit 1 = OCP.
+    CC_MODE_BIT = 10
+    OCP_TRIP_BIT = 1
     RAW_QUERIES = {
         '*IDN?': '*IDN?',
         'MEAS:VOLT?': 'MEASure:VOLTage?',
@@ -95,7 +90,8 @@ class KikusuiCommunicator:
                       'MEASure:VOLTage?': self._mock_voltage if self._mock_is_on else 0.0,
                       'MEASure:CURRent?': self._mock_current_a if self._mock_is_on else 0.0,
                       'OUTPut:STATe?': int(self._mock_is_on),
-                      'STATus:OPERation:CONDition?': 0, 'STATus:QUEStionable:EVENt?': 0}
+                      'STATus:OPERation:CONDition?': 0,
+                      'STATus:QUEStionable:CONDition?': 0, 'STATus:QUEStionable:EVENt?': 0}
             return str(values[command]).encode('ascii')
         if not self.instrument:
             log("ERROR", f"[Kikusui] [{self.resource_string}] Attempted query but instrument is not open.")
@@ -229,7 +225,7 @@ class KikusuiCommunicator:
 
     def monitor(self) -> dict:
         """
-        Fetches measurements and status, including CC mode and OCP trip events.
+        Fetches measurements and current CC/OCP conditions without clearing events.
         Returns voltage in V and measured current in mA for the shared DB/UI.
         """
         try:
@@ -254,10 +250,10 @@ class KikusuiCommunicator:
             if b"ERROR" in op_cond_bytes: raise Exception(f"Failed to query OPER:COND: {op_cond_bytes.decode()}")
             operation_cond_str = op_cond_bytes.decode('ascii')
             
-            # 5. Get Questionable Status (for OCP trip)
-            q_event_bytes = self._query("STATus:QUEStionable:EVENt?")
-            if b"ERROR" in q_event_bytes: raise Exception(f"Failed to query QUES:EVEN: {q_event_bytes.decode()}")
-            questionable_event_str = q_event_bytes.decode('ascii')
+            # Read the active condition; reading EVENt would clear the event register.
+            q_cond_bytes = self._query("STATus:QUEStionable:CONDition?")
+            if b"ERROR" in q_cond_bytes: raise Exception(f"Failed to query QUES:COND: {q_cond_bytes.decode()}")
+            questionable_cond_str = q_cond_bytes.decode('ascii')
             # --- END MODIFIED SECTION ---
 
             voltage = float(voltage_str)
@@ -265,17 +261,21 @@ class KikusuiCommunicator:
             current_ma = float(current_str) * 1000.0
             if not math.isfinite(voltage) or not math.isfinite(current_ma):
                 raise ValueError("Non-finite voltage or current reading")
+            if status_str not in ('0', '1'):
+                raise ValueError("Invalid output state response")
             is_on = (status_str == '1')
             
             operation_cond = int(operation_cond_str)
-            questionable_event = int(questionable_event_str)
+            questionable_cond = int(questionable_cond_str)
+            if not 0 <= operation_cond <= 65535 or not 0 <= questionable_cond <= 65535:
+                raise ValueError("Status register must be an unsigned 16-bit value")
 
             # Check the specific bits based on constants
             is_cc_mode = (operation_cond & (1 << self.CC_MODE_BIT)) != 0
-            has_ocp_tripped = (questionable_event & (1 << self.OCP_TRIP_BIT)) != 0
+            has_ocp_tripped = (questionable_cond & (1 << self.OCP_TRIP_BIT)) != 0
 
             if has_ocp_tripped:
-                log("WARN", f"[Kikusui] [{self.resource_string}] OCP TRIP EVENT DETECTED! (Status: {questionable_event})")
+                log("WARN", f"[Kikusui] [{self.resource_string}] OCP active (Status: {questionable_cond})")
 
             # Return parsed data as a dictionary
             # Note: No temperature data from this device.
@@ -287,7 +287,7 @@ class KikusuiCommunicator:
                     "is_cc_mode": is_cc_mode,
                     "has_ocp_tripped": has_ocp_tripped
                 },
-                "raw_response": f"V:{voltage_str},C:{current_str},S:{status_str},OP:{operation_cond_str},Q_EV:{questionable_event_str}"
+                "raw_response": f"V:{voltage_str},C:{current_str},S:{status_str},OP:{operation_cond_str},Q_COND:{questionable_cond_str}"
             }
         except Exception as e:
             log("ERROR", f"[Kikusui] [{self.resource_string}] Failed to parse response: {e}")

@@ -23,7 +23,7 @@ class KikusuiStartupTests(unittest.TestCase):
             'MEASure:CURRent?': '0.0005' if on else '0.0',
             'OUTPut:STATe?': str(int(on)),
             'STATus:OPERation:CONDition?': '0',
-            'STATus:QUEStionable:EVENt?': '16',
+            'STATus:QUEStionable:CONDition?': '2',
         }
         instrument.query.side_effect = responses.__getitem__
         return instrument

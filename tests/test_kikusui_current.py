@@ -19,8 +19,8 @@ class KikusuiCurrentTests(unittest.TestCase):
             'MEASure:VOLTage?': '50.0',
             'MEASure:CURRent?': '0.012345',
             'OUTPut:STATe?': '1',
-            'STATus:OPERation:CONDition?': '16',
-            'STATus:QUEStionable:EVENt?': '16',
+            'STATus:OPERation:CONDition?': '1024',
+            'STATus:QUEStionable:CONDition?': '2',
         }
         self.communicator.instrument.query.side_effect = self.responses.__getitem__
 

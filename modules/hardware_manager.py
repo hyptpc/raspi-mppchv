@@ -56,10 +56,12 @@ def parse_output_on(monitor_data: dict) -> bool | None:
     if "error" in monitor_data:
         return None
     if "is_on" in monitor_data:
-        return bool(monitor_data["is_on"])
+        state = monitor_data["is_on"]
+        return state if isinstance(state, bool) else None
     flags = monitor_data.get("status_flags") or {}
     if "is_hv_on" in flags:
-        return bool(flags["is_hv_on"])
+        state = flags["is_hv_on"]
+        return state if isinstance(state, bool) else None
     return None
 
 
