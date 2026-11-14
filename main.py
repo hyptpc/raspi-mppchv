@@ -210,6 +210,9 @@ async def queue_structured_command(cmd: StructuredCommand):
 
     cmd_type = cmd.command_type.upper()
 
+    if cmd_type == "DISABLE_OCP":
+        raise HTTPException(status_code=422, detail="PMX OCP cannot be disabled. Set its threshold with ENABLE_OCP.")
+
     if cmd_type == "RAMP_VOLTAGE":
         raise HTTPException(
             status_code=422,

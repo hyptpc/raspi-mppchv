@@ -56,12 +56,21 @@ class CommandValueTests(unittest.TestCase):
 
     def test_api_accepts_valid_values_and_zero_current(self):
         for command, value in (('SET_VOLTAGE', 55.0), ('SET_CURRENT', 0.0),
-                               ('SET_CURRENT', 0.1), ('ENABLE_OCP', 0.0), ('ENABLE_OCP', 0.1)):
+                               ('SET_CURRENT', 0.1), ('ENABLE_OCP', 0.1)):
             with self.subTest(command=command, value=value):
                 self.assertEqual(self.queue_command(command, value)['status'], 'success')
                 task = self.queue.get_nowait()
                 self.assertEqual(task['command_info']['value'], value)
         self.assert_no_hardware_calls()
+
+    def test_api_rejects_zero_ocp_and_unsupported_disable_without_queuing(self):
+        for command, value in (('ENABLE_OCP', 0.0), ('DISABLE_OCP', None)):
+            with self.subTest(command=command):
+                with self.assertRaises(HTTPException) as raised:
+                    self.queue_command(command, value)
+                self.assertEqual(raised.exception.status_code, 422)
+                self.assertTrue(self.queue.empty())
+                self.assert_no_hardware_calls()
 
     def test_worker_rejects_invalid_values_even_when_api_is_bypassed(self):
         for command in ('SET_VOLTAGE', 'SET_CURRENT', 'ENABLE_OCP'):

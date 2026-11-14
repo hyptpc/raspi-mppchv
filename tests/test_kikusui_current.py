@@ -60,9 +60,10 @@ class KikusuiCurrentTests(unittest.TestCase):
     def test_current_and_ocp_settings_still_use_amps(self):
         self.communicator.set_current(0.012)
         self.communicator.instrument.write.assert_called_with('SOURce:CURRent 0.012')
-        self.communicator.enable_ocp(0.025)
+        self.responses['CURRent:PROTection:LEVel?'] = '0.025'
+        self.assertEqual(self.communicator.enable_ocp(0.025), b'OK')
         self.communicator.instrument.write.assert_called_with(
-            'CURRent:PROTection:LEVel 0.025; CURRent:PROTection:STATe ON')
+            'CURRent:PROTection:LEVel 0.025')
 
     def test_new_rows_and_data_api_use_milliamps_without_rewriting_history(self):
         engine = create_engine('sqlite://')

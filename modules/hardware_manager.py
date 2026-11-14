@@ -81,6 +81,8 @@ def validate_command_value(command_type: str, value: float | None) -> str | None
     if command_type not in ("SET_VOLTAGE", "SET_CURRENT", "ENABLE_OCP"):
         return None
     try:
+        if command_type == "ENABLE_OCP" and math.isfinite(value) and value <= 0:
+            return "OCP threshold must be finite and positive."
         if math.isfinite(value) and value >= 0:
             return None
     except (TypeError, ValueError, OverflowError):

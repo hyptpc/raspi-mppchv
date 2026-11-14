@@ -45,7 +45,7 @@ class KikusuiCommunicator:
             self._mock_voltage = 0.0
             self._mock_current_a = 0.0
             self._mock_current_limit_a = 0.0
-            self._mock_ocp_enabled = False
+            self._mock_ocp_enabled = True
             self._mock_ocp_level_a = 0.0
             log("MOCK", f"[Kikusui] Initialized mock communicator for {self.resource_string}")
             # In test mode, just set 'instrument' to True to indicate it's 'ready'
@@ -87,6 +87,7 @@ class KikusuiCommunicator:
         if self.is_test_mode:
             values = {'*IDN?': 'KIKUSUI,MOCK,0,0',
                       'SOURce:VOLTage?': self._mock_voltage,
+                      'CURRent:PROTection:LEVel?': self._mock_ocp_level_a,
                       'MEASure:VOLTage?': self._mock_voltage if self._mock_is_on else 0.0,
                       'MEASure:CURRent?': self._mock_current_a if self._mock_is_on else 0.0,
                       'OUTPut:STATe?': int(self._mock_is_on),
@@ -194,24 +195,33 @@ class KikusuiCommunicator:
         return self._write(command)
 
     def enable_ocp(self, trip_current: float):
-        """Enables Over-Current Protection (OCP) and sets the trip level."""
+        """Set and verify the PMX OCP threshold; there is no enable/disable command."""
+        try:
+            if not math.isfinite(trip_current) or trip_current <= 0:
+                return b"ERROR:OCP_LEVEL_MUST_BE_FINITE_AND_POSITIVE"
+        except (TypeError, ValueError, OverflowError):
+            return b"ERROR:OCP_LEVEL_MUST_BE_FINITE_AND_POSITIVE"
         if self.is_test_mode:
-            self._mock_ocp_enabled = True
             self._mock_ocp_level_a = trip_current
-            log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating ENABLE_OCP to {trip_current}A")
-            return b"OK_OCP"
-        
-        # Set level and enable OCP in one command
-        command = f"CURRent:PROTection:LEVel {trip_current:.3f}; CURRent:PROTection:STATe ON"
-        return self._write(command)
+            log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating OCP level {trip_current}A")
+            response = b"OK_OCP"
+        else:
+            response = self._write(f"CURRent:PROTection:LEVel {trip_current:.9g}")
+        if not response or response.startswith(b"ERROR"):
+            return response or b"ERROR:OCP_LEVEL_WRITE_FAILED"
+        try:
+            readback = float(self._query("CURRent:PROTection:LEVel?").decode('ascii'))
+            if not math.isfinite(readback) or readback <= 0:
+                return b"ERROR:OCP_READBACK_INVALID"
+        except (ValueError, TypeError, OverflowError):
+            return b"ERROR:OCP_READBACK_FAILED"
+        if not math.isclose(readback, trip_current, rel_tol=1e-6, abs_tol=1e-9):
+            return f"ERROR:OCP_READBACK_MISMATCH:requested={trip_current:.9g},readback={readback:.9g}".encode('ascii')
+        return response
 
     def disable_ocp(self):
-        """Disables Over-Current Protection (OCP)."""
-        if self.is_test_mode:
-            self._mock_ocp_enabled = False
-            log("MOCK", f"[Kikusui] [{self.resource_string}] Simulating DISABLE_OCP")
-            return b"OK_OCP_OFF"
-        return self._write("CURRent:PROTection:STATe OFF")
+        """Reject the unsupported PMX operation without changing protection settings."""
+        return b"ERROR:COMMAND_NOT_SUPPORTED:PMX_OCP_CANNOT_BE_DISABLED"
     
     def clear_protection_trip(self):
         """

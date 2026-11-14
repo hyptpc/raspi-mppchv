@@ -54,8 +54,9 @@ class MockStateTests(unittest.TestCase):
         self.assertEqual(communicator.monitor()['current'], 12.0)
         self.assertEqual(communicator._mock_current_limit_a, 0.02)
         self.assertEqual(communicator._mock_ocp_level_a, 0.03)
-        communicator.disable_ocp()
-        self.assertFalse(communicator._mock_ocp_enabled)
+        self.assertTrue(communicator.disable_ocp().startswith(b'ERROR:COMMAND_NOT_SUPPORTED'))
+        self.assertTrue(communicator._mock_ocp_enabled)
+        self.assertEqual(communicator._mock_ocp_level_a, 0.03)
 
     def test_mock_commands_never_open_hardware(self):
         with patch('serial.Serial', side_effect=AssertionError('serial hardware')), \
