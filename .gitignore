@@ -8,3 +8,9 @@ data/
 *.db-wal
 *.db-shm
 *.db-journal
+
+# Local deployment settings and development artifacts
+/config/config_hv1.yaml
+/.local-dev/
+/.venv/
+/logs/
