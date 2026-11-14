@@ -9,6 +9,8 @@ TMUX_PATH=tmux
 CONFIG=config/config.yaml
 if [[ -f config/config_hv1.yaml ]]; then
     CONFIG=config/config_hv1.yaml
+elif [[ -f config/config_hv2.yaml ]]; then
+    CONFIG=config/config_hv2.yaml
 fi
 if [[ $# -eq 2 && "$1" == --config ]]; then
     CONFIG="$2"

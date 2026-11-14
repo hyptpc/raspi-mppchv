@@ -171,8 +171,8 @@ tmux attach -t hv
 
 The left pane runs the controller; the right pane runs sync with the same config.
 Both panes restart their command if it exits. The launcher refuses to start a
-duplicate `hv` session. Without arguments it selects `config/config_hv1.yaml`
-when present, otherwise `config/config.yaml`. Configure the sync destination
+duplicate `hv` session. Without arguments it selects `config/config_hv1.yaml`,
+then `config/config_hv2.yaml` when present, otherwise `config/config.yaml`. Configure the sync destination
 before starting. Stopping the `hv` session stops both processes; the existing
 `hv_controller.service` can keep using `hv_run.sh` as its start command.
 
