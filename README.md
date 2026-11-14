@@ -162,6 +162,20 @@ empty when unused. No SQLite command-line program or hardware connection is need
 environment, then `$HOME/.venv`, then `python3`. Set `HV_PYTHON` to override the
 interpreter. The Python entry point is also available as `python -m modules.db_sync`.
 
+To run the controller and sync together in a split tmux window:
+
+```bash
+./hv_run.sh --config config/config_hv1.yaml
+tmux attach -t hv
+```
+
+The left pane runs the controller; the right pane runs sync with the same config.
+Both panes restart their command if it exits. The launcher refuses to start a
+duplicate `hv` session. Without arguments it selects `config/config_hv1.yaml`
+when present, otherwise `config/config.yaml`. Configure the sync destination
+before starting. Stopping the `hv` session stops both processes; the existing
+`hv_controller.service` can keep using `hv_run.sh` as its start command.
+
 If SQLite reports a locked database, use the same config:
 
 ```bash
