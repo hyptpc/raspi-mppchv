@@ -2,7 +2,7 @@
 
 ## Description
 
-This application provides a web-based interface to control and monitor multiple Hamamatsu C11204-01 MPPC High Voltage Power Supply modules connected via serial ports (UART) to a Raspberry Pi or similar Linux system. It allows users to set voltages, turn outputs on/off, monitor voltage/current/temperature, and log both monitoring data and user actions.
+This application provides a web-based interface to control and monitor Hamamatsu C11204-01 MPPC HV modules over serial ports and Kikusui PMX-A power supplies over LAN/VISA. It supports voltage ramps, explicit output ON/OFF operations, measurements, and separate databases for monitoring data and user actions. Temperature measurements come from serial modules, optionally mapped to Kikusui channels.
 
 ## Directory Structure 📁
 
@@ -15,30 +15,41 @@ raspi-mppchv/
 ├── static/
 │   ├── index.html              # Main Web UI file
 │   ├── style.css               # CSS styles
-│   └── script.js               # JavaScript for UI logic and charts
-|   └── chart.umd.js            # Chart.js library (downloaded)
-|   └── chartjs-adapter-date-fns.bundle.min.js # Date adapter for Chart.js (downloaded)
+│   ├── script.js               # JavaScript for UI logic and charts
+│   ├── chart.umd.js            # Local Chart.js library
+│   └── chartjs-adapter-date-fns.bundle.min.js # Local date adapter
 ├── modules/
 │   ├── __init__.py             # Makes 'modules' a Python package
-│   ├── serial_com.py           # Handles serial communication logic
+│   ├── hamahoto_module.py      # Hamamatsu serial protocol and initialization
+│   ├── kikusui_module.py       # Kikusui PMX-A communication
+│   ├── hardware_manager.py     # Command worker, ramps, and safety checks
 │   ├── db_measurements.py      # Database logic for monitoring data
 │   ├── db_logs.py              # Database logic for action logs
+│   ├── db_runs.py              # Shared database naming and fresh runs
+│   ├── db_sync.py              # Optional SQLite snapshot helper
+│   ├── db_unlock.py            # SQLite lock/recovery checks
 │   └── logger.py               # Logging setup
+├── hv_run.sh.example           # Generic controller/sync tmux launcher template
+├── sync_db.sh                  # Standalone snapshot launcher
+├── db_unlock.sh                # Standalone lock-check launcher
+├── tests/                      # Automated tests using simulated hardware
 └── requirements.txt            # Python dependencies
 ```
 
 ## Setup & Installation ⚙️
 
+Use Python 3.11 or newer.
+
 1.  **Clone the Repository:**
     ```bash
-    git clone raspi-mppchv
+    git clone https://github.com/hyptpc/raspi-mppchv.git
     cd raspi-mppchv
     ```
 
 2.  **Create & Activate Virtual Environment (Recommended):**
     ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    python -m venv .venv
+    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
     ```
 
 3.  **Install Dependencies:**
@@ -48,8 +59,9 @@ raspi-mppchv/
 
 4.  **Configure:**
     * Edit `config/config.yaml` to match your setup:
-        * Set `serial_ports` device names (e.g., `/dev/ttyAMA0`, `/dev/ttyUSB0`).
-        * Adjust `monitoring_interval` if needed.
+        * Set each `devices` entry's `id`, `type`, and `connection`. Use `serial_hv` with a device path (e.g., `/dev/ttyUSB0`), or `kikusui_visa` with a supply IP address.
+        * Set `max_voltage_v` per voltage-control channel to match the connected load and the supply's supported range. Omitting it leaves no channel-specific software ceiling.
+        * Adjust `general.monitoring_interval` if needed.
         * Set `test_mode.enabled` to `false` for use with real hardware.
         * Change `server.host` and `server.port` if necessary.
 
@@ -62,7 +74,7 @@ raspi-mppchv/
 ## Usage ▶️
 
 1.  **Start the Server:**
-    Navigate to the `mppc_controller` directory in your terminal and run:
+    Navigate to the `raspi-mppchv` repository directory in your terminal and run:
     ```bash
     python main.py --config config/config.yaml
     ```
@@ -93,7 +105,7 @@ raspi-mppchv/
 
 3.  **Use the Interface:**
     * Use the "Structured Commands" panel for common actions.
-    * Use the "Raw Command" panel to send specific device commands from the manual.
+    * Use the "Raw Command" panel for the approved queries and serial OFF command listed below.
     * Monitor status in the top-right panels.
     * View live data trends in the charts below.
     * Use the "Graph Display" toggles to show/hide specific data series.
@@ -219,11 +231,62 @@ Explicit Kikusui `RESET` and `CLEAR_TRIP` both send only
 Remove the cause of an alarm before clearing it. Turning output on is a separate
 explicit operation; RESET does not automatically send ON.
 
-The PMX manual describes `*CLS` as clearing event registers and the error queue;
-omitting it on connection preserves those records until normal status queries read them.
+The PMX manual describes `*CLS` as clearing event registers and the error queue.
+Connection and normal monitoring preserve these records: monitoring reads the
+OPERation and QUEStionable condition registers. An explicit raw
+`STAT:QUES:EVEN?` query reads and clears the questionable event register.
 See the [PMX interface manual](https://www.kikusui.cn/resources/001/pdf/pmx-a_interface_manual.pdf).
 
 Serial modules use the separate startup initialization below.
+
+## Kikusui status and OCP settings
+
+CC mode uses OPERation bit 10; active OCP uses QUEStionable bit 1, following
+the PMX interface manual pp.105/123. QUEStionable bit 4 represents overtemperature,
+not OCP. Normal monitoring uses `STATus:QUEStionable:CONDition?`, so a persistent
+OCP condition remains visible across polls without clearing event history.
+Malformed output-state or status-register responses are recorded as monitoring
+errors, with unknown HV/protection status.
+
+The UI action **SET OCP LEVEL (Kikusui)** sets the OCP threshold in A. Its API
+command name remains `ENABLE_OCP` for compatibility; it does not toggle protection.
+It sends `CURRent:PROTection:LEVel <value>` and reads
+`CURRent:PROTection:LEVel?` to verify the applied threshold. Invalid, unavailable,
+or mismatched readback returns an error. A readback failure leaves the supply's
+applied setting in place; it does not trigger an automatic rollback or reset.
+
+The threshold must be finite and positive. PMX specifies a setting range of
+10–110% of rated output current (manual p.93); the usable values depend on the
+connected model. Device rounding or rejection is reported through readback
+verification. This checks the setting, not physical protection operation.
+
+PMX has no documented `CURRent:PROTection:STATe` ON/OFF operation. The UI offers
+no disable action, and `DISABLE_OCP` requests are rejected without sending commands.
+Startup and reconnection leave current-limit and OCP settings unchanged.
+
+## Voltage ramps and limits
+
+`general.ramp_voltage_target_v_per_s` sets the target ramp rate. With
+`ramp_pad_step_to_target_rate: true`, each step includes any necessary wait so
+fast communication does not bypass the requested timing. The default first step
+uses `ramp_voltage_default_cycle_s`; later steps use the previous cycle duration,
+with changes capped by `ramp_voltage_max_step_v`. Ramps are a series of setpoint
+changes, not a hardware-generated continuous waveform.
+
+`devices[].max_voltage_v` is checked before accepting a voltage request and again
+in the command worker. It also applies to the low starting voltage for explicit
+ON commands. These are application checks; they do not configure the supply's
+hardware OVP setting. Configuration changes take effect when the controller
+process restarts. Kikusui restart preserves output state and setpoints; serial
+restart performs the OFF initialization described below.
+
+Commands execute in one queue. An OFF request waits for an active ramp or other
+command to finish; it is not an interrupt. Ramp errors stop further upward steps.
+An explicit OFF operation attempts OFF even if its preceding ramp-down fails.
+
+The browser refreshes every two seconds. It may show several ramp steps at once,
+and the instrument's measurement update interval can also produce repeated values.
+Use the recorded measurement timestamps when examining a ramp.
 
 ## Serial startup
 
@@ -299,8 +362,11 @@ Install `requirements.txt`, then run:
 python -m unittest discover -s tests -v
 ```
 
-Unknown or missing monitoring status is displayed as `UNKNOWN`, including HV,
-protection, and temperature flags. Unknown status is not displayed as OFF or OK.
+Unknown or missing monitoring status is displayed as a gray `—`, including HV,
+protection, and temperature flags. The cell's tooltip and accessible label say
+`Unknown`; it is not displayed as OFF or OK. Tests cover simulated responses and
+command failures without operating real hardware; they do not verify the physical
+operation of a supply's protection circuits.
 
 ## Dependencies 📦
 
@@ -309,7 +375,9 @@ protection, and temperature flags. Unknown status is not displayed as OFF or OK.
 * SQLAlchemy: Database interaction (ORM)
 * PySerial: Serial port communication
 * PyYAML: Reading YAML configuration files
-* Chart.js & chartjs-adapter-date-fns: Front-end charting libraries (loaded via CDN or locally)
+* PyVISA & pyvisa-py: Kikusui VISA communication
+* QuickJS: JavaScript status-rendering tests
+* Chart.js & chartjs-adapter-date-fns: Front-end charting libraries served from `static/`
 
 ## License 📜
 
