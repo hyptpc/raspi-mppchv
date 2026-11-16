@@ -113,6 +113,13 @@ class KikusuiCommunicator:
 
     # --- High-level device commands (Common Interface) ---
 
+    def get_output_state(self) -> bool:
+        """Read a confirmed output state before allowing another ramp-up step."""
+        response = self._query('OUTPut:STATe?')
+        if response not in (b'0', b'1'):
+            raise ValueError(f'Cannot verify output state: {response!r}')
+        return response == b'1'
+
     def get_voltage_setpoint(self) -> float:
         """Read the retained setting, including while the output is OFF."""
         response = self._query('SOURce:VOLTage?')

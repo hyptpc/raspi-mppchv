@@ -100,6 +100,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 def _apply_hardware_manager_settings(general: dict) -> None:
     """Load ramp/safety settings from config general section into hardware_manager."""
+    for key, attribute, default in (
+        ('kikusui_ramp_up_max_v_per_s', 'KIKUSUI_RAMP_UP_MAX_V_PER_S', 2.0),
+        ('kikusui_ramp_down_max_v_per_s', 'KIKUSUI_RAMP_DOWN_MAX_V_PER_S', 4.0),
+    ):
+        value = float(general.get(key, default))
+        if not hardware_manager._is_finite(value) or value <= 0:
+            raise ValueError(f'{key} must be finite and positive')
+        setattr(hardware_manager, attribute, value)
     hardware_manager.RAMP_VOLTAGE_TARGET_V_PER_S = float(
         general.get("ramp_voltage_target_v_per_s", 5.0)
     )

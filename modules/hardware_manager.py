@@ -32,6 +32,11 @@ RAMP_VOLTAGE_MAX_STEP_V: float | None = 0.5
 # If True, pad each step with sleep so wall time >= dV/v_per_s (fast bus ≈ fixed-delay feel; slow bus unchanged).
 RAMP_PAD_STEP_TO_TARGET_RATE = True
 RAMP_VOLTAGE_DOWN_TARGET_V_PER_S: float | None = None
+# Kikusui uses fixed-size, paced steps instead of bus-time adaptation.
+KIKUSUI_RAMP_UP_MAX_V_PER_S = 2.0
+KIKUSUI_RAMP_DOWN_MAX_V_PER_S = 4.0
+KIKUSUI_RAMP_STEP_INTERVAL_S = 0.25
+KIKUSUI_RAMP_MIN_WAIT_S = 0.05
 REQUIRE_ON_FOR_VOLTAGE_INCREASE = True
 VOLTAGE_EQ_EPSILON_V = 0.001
 RAMP_MAX_ITERATIONS = 20000
@@ -174,6 +179,83 @@ def monitor_primary_then_save_combined(port_id: int, communicator) -> dict:
     return combined
 
 
+def _run_kikusui_voltage_ramp(port_id, communicator, v_target, v_per_s, primary):
+    """Pace fixed steps from the retained setting; bus speed cannot enlarge them."""
+    try:
+        v_now = communicator.get_voltage_setpoint()
+    except (ValueError, TypeError, OverflowError) as error:
+        log("ERROR", f"Cannot read ramp starting setpoint for port {port_id}: {error}")
+        return b"ERROR:SETPOINT_READ_FAILED"
+    if not _is_finite(v_now) or v_now < 0:
+        return b"ERROR:INVALID_SETPOINT"
+    allowed, error = check_max_voltage_allowed(port_id, v_target)
+    if not allowed:
+        return f"ERROR:RAMP:{error}".encode('utf-8')
+    ramp_up = v_target > v_now
+    if ramp_up and parse_output_on(primary) is not True:
+        return b"ERROR:OUTPUT_NOT_ON"
+    cap = KIKUSUI_RAMP_UP_MAX_V_PER_S if ramp_up else KIKUSUI_RAMP_DOWN_MAX_V_PER_S
+    if not _is_finite(cap) or cap <= 0:
+        return b"ERROR:INVALID_KIKUSUI_RAMP_RATE"
+    rate = min(v_per_s, cap)
+    interval = KIKUSUI_RAMP_STEP_INTERVAL_S
+    if not _is_finite(interval) or interval <= 0:
+        return b"ERROR:INVALID_KIKUSUI_RAMP_INTERVAL"
+    step = rate * interval
+    if RAMP_VOLTAGE_MAX_STEP_V is not None:
+        if not _is_finite(RAMP_VOLTAGE_MAX_STEP_V) or RAMP_VOLTAGE_MAX_STEP_V <= 0:
+            return b"ERROR:INVALID_RAMP_STEP"
+        step = min(step, RAMP_VOLTAGE_MAX_STEP_V)
+    last_verified = time.monotonic()
+    last_response = b"OK_NOOP"
+    iterations = 0
+    while abs(v_target - v_now) > VOLTAGE_EQ_EPSILON_V:
+        iterations += 1
+        if iterations > RAMP_MAX_ITERATIONS:
+            return b"ERROR:RAMP_MAX_ITERATIONS"
+        # Round toward the previous setting: quantization must not enlarge a step.
+        if ramp_up:
+            v_next = math.floor((min(v_target, v_now + step) + 1e-9) * 1000) / 1000
+        else:
+            v_next = math.ceil((max(v_target, v_now - step) - 1e-9) * 1000) / 1000
+        delta = abs(v_next - v_now)
+        if delta < 1e-9:
+            return b"ERROR:RAMP_STEP_BELOW_RESOLUTION"
+        # Wait BEFORE every write, including first/last. Start from the last
+        # verified setting, never catch up after slow I/O, and ignore PAD=False.
+        deadline = last_verified + max(KIKUSUI_RAMP_MIN_WAIT_S, delta / rate)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(remaining)
+        if ramp_up:
+            try:
+                if communicator.get_output_state() is not True:
+                    return b"ERROR:OUTPUT_NOT_ON"
+            except (ValueError, TypeError, OverflowError):
+                return b"ERROR:OUTPUT_STATE_UNKNOWN"
+        last_response = communicator.set_voltage(v_next)
+        if not last_response or last_response.startswith(b"ERROR"):
+            return last_response or b"ERROR:VOLTAGE_WRITE_FAILED"
+        try:
+            readback = communicator.get_voltage_setpoint()
+        except (ValueError, TypeError, OverflowError):
+            return b"ERROR:SETPOINT_READ_FAILED"
+        if not _is_finite(readback) or not math.isclose(readback, v_next, rel_tol=1e-9, abs_tol=1e-6):
+            return b"ERROR:SETPOINT_READBACK_MISMATCH"
+        last_verified = time.monotonic()
+        combined = monitor_primary_then_save_combined(port_id, communicator)
+        if "error" in combined:
+            return b"ERROR:MONITOR_FAILED"
+        if not _is_finite(combined.get("voltage")):
+            return b"ERROR:INVALID_VOLTAGE"
+        if ramp_up and parse_output_on(combined) is not True:
+            return b"ERROR:OUTPUT_NOT_ON"
+        v_now = readback
+    return last_response
+
+
 def run_adaptive_voltage_ramp(
     port_id: int,
     communicator,
@@ -201,6 +283,9 @@ def run_adaptive_voltage_ramp(
         return b"ERROR:NO_VOLTAGE"
     if not _is_finite(v_now):
         return b"ERROR:INVALID_VOLTAGE"
+
+    if isinstance(communicator, KikusuiCommunicator):
+        return _run_kikusui_voltage_ramp(port_id, communicator, v_target, v_per_s, primary0)
 
     if abs(v_target - v_now) <= VOLTAGE_EQ_EPSILON_V:
         combined = monitor_primary_then_save_combined(port_id, communicator)

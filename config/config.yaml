@@ -11,6 +11,9 @@ general:
   ramp_voltage_cycle_ewma_alpha: 1.0
   ramp_voltage_max_step_v: 0.5
   ramp_pad_step_to_target_rate: true
+  # Kikusui uses fixed pacing even when the adaptive padding flag is false.
+  kikusui_ramp_up_max_v_per_s: 2.0
+  kikusui_ramp_down_max_v_per_s: 4.0
   # ramp_voltage_down_target_v_per_s: 3.0
 
   # Refuse voltage increases when output is off; “same voltage” tolerance (V).

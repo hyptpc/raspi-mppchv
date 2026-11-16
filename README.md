@@ -63,7 +63,9 @@ configs named `config/config_*.yaml` are ignored by Git.
 | `device_mappings` | Primary device ID → serial module ID supplying its temperature data |
 | `general.monitoring_interval` | Background monitoring interval in seconds |
 | `general.display_time_window_minutes` | Chart history window in minutes |
-| `general.ramp_voltage_target_v_per_s` | Target ramp rate in V/s |
+| `general.ramp_voltage_target_v_per_s` | Shared target ramp rate in V/s |
+| `general.kikusui_ramp_up_max_v_per_s` | Kikusui ramp-up ceiling, 2 V/s by default |
+| `general.kikusui_ramp_down_max_v_per_s` | Kikusui ramp-down ceiling, 4 V/s by default |
 | `general.ramp_voltage_max_step_v` | Maximum change per ramp step in V |
 | `general.ramp_pad_step_to_target_rate` | Add waiting time on fast links to maintain the target ramp rate |
 | `server.host`, `server.port` | Listening address and port |
@@ -142,11 +144,29 @@ and accessible label. It is not interpreted as OFF or OK.
 
 ### Ramps and OFF requests
 
-The default ramp rate is 5 V/s. Each ramp writes successive setpoints and monitors
-the result. With `ramp_pad_step_to_target_rate: true`, fast communication includes
-waiting time to maintain the requested rate. Steps are sized from the previous
-cycle duration and capped by `ramp_voltage_max_step_v`; the first cycle uses
-`ramp_voltage_default_cycle_s`.
+Serial modules retain their adaptive ramp, with a default target of 5 V/s.
+`ramp_pad_step_to_target_rate: true` adds waiting time on fast links. Serial step
+sizes use the previous cycle duration and `ramp_voltage_max_step_v`; the first
+cycle uses `ramp_voltage_default_cycle_s`.
+
+Kikusui uses separately capped rates: **2 V/s upward and 4 V/s downward** by
+default. A slower shared ramp-rate setting remains effective. Kikusui step sizes
+are fixed from the selected rate and a nominal 0.25 s interval: at most 0.5 V
+upward or 1 V downward with the default caps. A smaller `ramp_voltage_max_step_v`
+can reduce the step further. Slow communication never increases the step size.
+
+Kikusui ramps start from `SOURce:VOLTage?`, the retained setting, rather than a
+possibly delayed measured voltage. Every step waits until its required time has
+elapsed since the preceding verified setting, including the first and final
+changes. Each write is read back before another step is allowed. Output ON is
+queried again after waiting and before each upward write. Invalid state or
+readback stops further steps. These waits remain active when the adaptive
+`ramp_pad_step_to_target_rate` flag is false.
+
+In the zero-latency simulation, 0 to 60 V takes at least 30 seconds and 60 to 0 V
+at least 15 seconds. Communication and database work may make the real ramp
+slower. These limits describe software setpoint changes; physical output behavior
+requires separate hardware verification.
 
 With the default `require_on_for_voltage_increase: true`, an increase requires
 confirmed output ON. Invalid measurements or command failures stop further ramp
