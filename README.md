@@ -144,7 +144,8 @@ and accessible label. It is not interpreted as OFF or OK.
 
 ### Ramps and OFF requests
 
-Serial modules retain their adaptive ramp, with a default target of 5 V/s.
+Serial modules retain their adaptive ramp. The supplied configuration sets
+2 V/s upward and 4 V/s downward; deployment configurations can override these rates.
 `ramp_pad_step_to_target_rate: true` adds waiting time on fast links. Serial step
 sizes use the previous cycle duration and `ramp_voltage_max_step_v`; the first
 cycle uses `ramp_voltage_default_cycle_s`.
