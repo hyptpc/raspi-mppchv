@@ -23,6 +23,7 @@ PORT_VOLTAGE_LIMITS_V: dict[int, float] = {}
 
 # --- Ramp / safety (overwritten from main.py from config) ---
 RAMP_VOLTAGE_TARGET_V_PER_S = 5.0
+RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S: float | None = None
 # Used only for the first ramp step before we have a measured cycle time.
 RAMP_VOLTAGE_DEFAULT_CYCLE_S = 0.1
 # 1.0 = size each step from the last measured cycle only (best average rate match).
@@ -298,6 +299,12 @@ def run_adaptive_voltage_ramp(
         return b"OK_NOOP"
 
     ramp_up = v_target > v_now
+    if ramp_up and isinstance(communicator, SerialCommunicator):
+        cap = RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S
+        if cap is not None:
+            if not _is_finite(cap) or cap <= 0:
+                return b"ERROR:INVALID_SERIAL_RAMP_RATE"
+            v_per_s = min(v_per_s, cap)
     if ramp_up and parse_output_on(primary0) is not True:
         return b"ERROR:OUTPUT_NOT_ON"
 

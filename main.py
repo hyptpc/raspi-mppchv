@@ -108,6 +108,12 @@ def _apply_hardware_manager_settings(general: dict) -> None:
         if not hardware_manager._is_finite(value) or value <= 0:
             raise ValueError(f'{key} must be finite and positive')
         setattr(hardware_manager, attribute, value)
+    serial_cap = general.get('serial_ramp_up_max_v_per_s')
+    if serial_cap is not None:
+        serial_cap = float(serial_cap)
+        if not hardware_manager._is_finite(serial_cap) or serial_cap <= 0:
+            raise ValueError('serial_ramp_up_max_v_per_s must be finite and positive')
+    hardware_manager.RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S = serial_cap
     hardware_manager.RAMP_VOLTAGE_TARGET_V_PER_S = float(
         general.get("ramp_voltage_target_v_per_s", 5.0)
     )

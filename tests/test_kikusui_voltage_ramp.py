@@ -82,6 +82,7 @@ class KikusuiVoltageRampTests(unittest.TestCase):
             patch.dict(hw.PORT_VOLTAGE_LIMITS_V, {}, clear=True),
             patch.object(hw, 'RAMP_VOLTAGE_MAX_STEP_V', 2.5),
             patch.object(hw, 'RAMP_PAD_STEP_TO_TARGET_RATE', False),
+            patch.object(hw, 'RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S', 1.5),
             patch.object(hw, 'KIKUSUI_RAMP_UP_MAX_V_PER_S', 2.0),
             patch.object(hw, 'KIKUSUI_RAMP_DOWN_MAX_V_PER_S', 4.0),
         ):
@@ -219,7 +220,8 @@ class KikusuiVoltageRampTests(unittest.TestCase):
     def test_config_rejects_nonpositive_or_nonfinite_kikusui_rates(self):
         saved = {name: value for name, value in vars(hw).items()
                  if name.startswith(('RAMP_', 'KIKUSUI_RAMP_', 'VOLTAGE_EQ_', 'REQUIRE_ON_'))}
-        for key in ('kikusui_ramp_up_max_v_per_s', 'kikusui_ramp_down_max_v_per_s'):
+        for key in ('kikusui_ramp_up_max_v_per_s', 'kikusui_ramp_down_max_v_per_s',
+                    'serial_ramp_up_max_v_per_s'):
             for value in (0, -1, float('nan'), float('inf')):
                 with patch.multiple(hw, **saved):
                     with self.assertRaises(ValueError):

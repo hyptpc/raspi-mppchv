@@ -7,6 +7,7 @@ general:
 
   # SET_VOLTAGE uses an adaptive ramp toward ~ramp_voltage_target_v_per_s (V/s).
   ramp_voltage_target_v_per_s: 2.0
+  serial_ramp_up_max_v_per_s: 1.5
   ramp_voltage_default_cycle_s: 0.1
   ramp_voltage_cycle_ewma_alpha: 1.0
   ramp_voltage_max_step_v: 0.5

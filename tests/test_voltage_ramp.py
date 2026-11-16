@@ -35,6 +35,27 @@ class VoltageRampTests(unittest.TestCase):
         self.communicator.monitor.side_effect = monitors
         return hardware_manager.run_adaptive_voltage_ramp(1, self.communicator, target, 5.0)
 
+    def test_serial_only_ceiling_slows_upward_steps(self):
+        from modules.hamahoto_module import SerialCommunicator
+        self.communicator = Mock(spec=SerialCommunicator)
+        self.communicator.set_voltage.return_value = b'OK'
+        self.communicator.monitor.return_value = reading(20.5)
+        with patch.object(hardware_manager, 'RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S', 1.5):
+            result = hardware_manager.run_adaptive_voltage_ramp(1, self.communicator, 21.5, 5.0)
+        self.assertEqual(result, b'OK')
+        values = [20.5] + [c.args[0] for c in self.communicator.set_voltage.call_args_list]
+        self.assertAlmostEqual(values[1], 20.65)
+        self.assertTrue(all(0 < b-a <= .15 + 1e-8 for a,b in zip(values,values[1:])))
+        self.assertAlmostEqual(values[-1], 21.5)
+
+    def test_serial_ceiling_does_not_slow_downward_ramps(self):
+        from modules.hamahoto_module import SerialCommunicator
+        self.communicator = Mock(spec=SerialCommunicator)
+        self.communicator.set_voltage.return_value = b'OK'
+        with patch.object(hardware_manager, 'RAMP_VOLTAGE_SERIAL_UP_MAX_V_PER_S', 1.5):
+            self.assertEqual(self.ramp([reading(2), reading(1.5), reading(1)], target=1), b'OK')
+        self.assertEqual(self.communicator.set_voltage.call_args_list, [call(1.5), call(1)])
+
     def test_successful_ramp_writes_each_step(self):
         result = self.ramp([reading(), reading(2.5), reading(3.0)])
         self.assertEqual(result, b'OK')

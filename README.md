@@ -64,6 +64,7 @@ configs named `config/config_*.yaml` are ignored by Git.
 | `general.monitoring_interval` | Background monitoring interval in seconds |
 | `general.display_time_window_minutes` | Chart history window in minutes |
 | `general.ramp_voltage_target_v_per_s` | Shared target ramp rate in V/s |
+| `general.serial_ramp_up_max_v_per_s` | Optional serial-only upward ceiling; supplied config uses 1.5 V/s |
 | `general.kikusui_ramp_up_max_v_per_s` | Kikusui ramp-up ceiling, 2 V/s by default |
 | `general.kikusui_ramp_down_max_v_per_s` | Kikusui ramp-down ceiling, 4 V/s by default |
 | `general.ramp_voltage_max_step_v` | Maximum change per ramp step in V |
@@ -145,7 +146,9 @@ and accessible label. It is not interpreted as OFF or OK.
 ### Ramps and OFF requests
 
 Serial modules retain their adaptive ramp. The supplied configuration sets
-2 V/s upward and 4 V/s downward; deployment configurations can override these rates.
+a shared target of 2 V/s and a downward target of 4 V/s. The serial-only
+`serial_ramp_up_max_v_per_s: 1.5` lowers serial upward ramps to 1.5 V/s without
+changing Kikusui rates. Omitting this ceiling preserves the shared upward rate.
 `ramp_pad_step_to_target_rate: true` adds waiting time on fast links. Serial step
 sizes use the previous cycle duration and `ramp_voltage_max_step_v`; the first
 cycle uses `ramp_voltage_default_cycle_s`.
